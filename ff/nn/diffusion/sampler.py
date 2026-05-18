@@ -1,5 +1,5 @@
 import torch
-from scheduler import VPScheduler
+from .scheduler import VPScheduler
 
 class DDPMSampler:
     def __init__(self, scheduler: VPScheduler, limit=None):
