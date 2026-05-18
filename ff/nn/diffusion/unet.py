@@ -132,7 +132,7 @@ class UnconditionalUNet(BaseUNet):
     def forward(self, x, t):
         return super().forward(x, t)
 
-class ClassConditionedUNet(BaseUNet):
+class ClassConditionalUNet(BaseUNet):
     def __init__(self, num_channels=3, num_classes=10, dim=64, embedding_dim=256, layers=(1, 2, 2, 2), num_mid_layers=1, T=1000):
         super().__init__(num_channels, dim, embedding_dim, layers, num_mid_layers, T, embedding_dim)
         self.num_classes = num_classes

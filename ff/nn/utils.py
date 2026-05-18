@@ -1,3 +1,4 @@
+import math
 import torch
 from pathlib import Path
 
@@ -67,7 +68,7 @@ def get_sinusoidal_embedding(time_length, embedding_dim):
     """
     t = torch.arange(time_length)
     half_dim = embedding_dim // 2
-    embedding = torch.log(10000) / (half_dim - 1)
+    embedding = math.log(10000) / (half_dim - 1)
     embedding = torch.exp(torch.arange(half_dim) * -embedding)
     embedding = t[:, None] * embedding[None, :]
     embedding = torch.cat((embedding.sin(), embedding.cos()), dim=-1)
