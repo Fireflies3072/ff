@@ -59,7 +59,7 @@ class ResidualBlock(nn.Module):
         h = self.conv2(h)
         return h + self.shortcut(x)
 
-class ResidualBlockWithEmbedding(nn.Module):
+class ResidualBlockWithEmbedding(ResidualBlock):
     def __init__(self, in_dim, out_dim, embedding_dim, scale='same', groups=8):
         super().__init__(in_dim, out_dim, scale, groups)
         

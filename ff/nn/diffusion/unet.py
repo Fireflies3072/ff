@@ -74,7 +74,7 @@ class BaseUNet(nn.Module):
             stage_blocks = nn.ModuleList()
             for block_index in range(num_blocks):
                 if stage_index > 0 and block_index == num_blocks - 1:
-                    in_dim = ref_dim
+                    in_dim = ref_dim if block_index > 0 else ref_dim * 2
                     out_dim = dim * (2 ** (stage_index - 1))
                     scale_mode = 'up'
                 elif block_index == 0:
