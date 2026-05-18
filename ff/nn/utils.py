@@ -5,7 +5,7 @@ from pathlib import Path
 def count_params(model):
     return sum(p.numel() for p in model.parameters())
 
-def save_model(path, model, optimizer=None, epoch=None, info=None, simplied_model=None):
+def save_model(path, model, optimizer=None, epoch=None, info=None, simplified_model=None):
     # Create directory
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -31,11 +31,11 @@ def save_model(path, model, optimizer=None, epoch=None, info=None, simplied_mode
     
     # Save model
     torch.save(state, path)
-    if simplied_model is not None:
-        if isinstance(simplied_model, (list, tuple)):
-            torch.save({'model': [m.state_dict() for m in simplied_model]}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
+    if simplified_model is not None:
+        if isinstance(simplified_model, (list, tuple)):
+            torch.save({'model': [m.state_dict() for m in simplified_model]}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
         else:
-            torch.save({'model': [simplied_model.state_dict()]}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
+            torch.save({'model': [simplified_model.state_dict()]}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
 
 def read_model(path, model, optimizer=None):
     # If path is not a file, return default values
