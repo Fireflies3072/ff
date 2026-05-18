@@ -5,7 +5,7 @@ from pathlib import Path
 def count_params(model):
     return sum(p.numel() for p in model.parameters())
 
-def save_model(path, model, optimizer=None, epoch=None, info=None, save_simplied_model=True):
+def save_model(path, model, optimizer=None, epoch=None, info=None, simplied_model=None):
     # Create directory
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -13,13 +13,13 @@ def save_model(path, model, optimizer=None, epoch=None, info=None, save_simplied
     state = {}
 
     # Extract model parameters
-    if type(model) == list:
+    if isinstance(model, (list, tuple)):
         state['model'] = [m.state_dict() for m in model]
     else:
         state['model'] = [model.state_dict()]
     # Extract optimizer parameters
     if optimizer is not None:
-        if type(optimizer) == list:
+        if isinstance(optimizer, (list, tuple)):
             state['optimizer'] = [o.state_dict() for o in optimizer]
         else:
             state['optimizer'] = [optimizer.state_dict()]
@@ -31,8 +31,11 @@ def save_model(path, model, optimizer=None, epoch=None, info=None, save_simplied
     
     # Save model
     torch.save(state, path)
-    if save_simplied_model:
-        torch.save({'model': state['model']}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
+    if simplied_model is not None:
+        if isinstance(simplied_model, (list, tuple)):
+            torch.save({'model': [m.state_dict() for m in simplied_model]}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
+        else:
+            torch.save({'model': [simplied_model.state_dict()]}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
 
 def read_model(path, model, optimizer=None):
     # If path is not a file, return default values
@@ -44,16 +47,18 @@ def read_model(path, model, optimizer=None):
     checkpoint = torch.load(path)
     # Load model parameters
     if 'model' in checkpoint:
-        if type(model) == list:
-            for i in range(len(checkpoint['model'])):
-                model[i].load_state_dict(checkpoint['model'][i])
+        if isinstance(model, (list, tuple)):
+            for i in range(len(model)):
+                if model[i] is not None:
+                    model[i].load_state_dict(checkpoint['model'][i])
         else:
             model.load_state_dict(checkpoint['model'][0])
     # Load optimizer parameters
     if (optimizer is not None) and ('optimizer' in checkpoint):
-        if type(optimizer) == list:
-            for i in range(len(checkpoint['optimizer'])):
-                optimizer[i].load_state_dict(checkpoint['optimizer'][i])
+        if isinstance(optimizer, (list, tuple)):
+            for i in range(len(optimizer)):
+                if optimizer[i] is not None:
+                    optimizer[i].load_state_dict(checkpoint['optimizer'][i])
         else:
             optimizer.load_state_dict(checkpoint['optimizer'][0])
     # Load other parameters
