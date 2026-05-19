@@ -78,3 +78,14 @@ def get_sinusoidal_embedding(time_length, embedding_dim):
     embedding = t[:, None] * embedding[None, :]
     embedding = torch.cat((embedding.sin(), embedding.cos()), dim=-1)
     return embedding
+
+def calculate_gradient_penalty(real, fake, D):
+    b = real.shape[0]
+    n = len(real.shape) - 1
+    alpha = torch.rand(b, *[1] * n).to(real.device)
+    interpolate = (alpha * real + (1 - alpha) * fake).detach().requires_grad_(True)
+    interpolate_score = D(interpolate)
+    gradient = torch.autograd.grad(interpolate_score, interpolate, torch.ones_like(interpolate_score), True, True)[0]
+    gradient = gradient.view(b, -1)
+    gradient_penalty = torch.mean((torch.norm(gradient, 2, 1) - 1) ** 2)
+    return gradient_penalty

@@ -45,7 +45,10 @@ class ResidualBlock(nn.Module):
                 shortcut_layers.insert(0, nn.Conv2d(in_dim, out_dim, 1, 1, 0))
             self.shortcut = nn.Sequential(*shortcut_layers)
         elif scale == 'up':
-            self.conv2 = nn.ConvTranspose2d(out_dim, out_dim, 4, 2, 1)
+            self.conv2 = nn.Sequential(
+                nn.Upsample(scale_factor=2, mode='nearest'),
+                nn.Conv2d(out_dim, out_dim, 3, 1, 1)
+            )
             shortcut_layers = [nn.Upsample(scale_factor=2, mode='nearest')]
             if in_dim != out_dim:
                 shortcut_layers.insert(0, nn.Conv2d(in_dim, out_dim, 1, 1, 0))

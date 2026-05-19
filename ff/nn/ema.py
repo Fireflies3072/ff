@@ -59,17 +59,18 @@ class EMAModel:
         # Get the device of the online model
         model_device = next(model.parameters()).device
         
-        # Use EMA model if the device is the same as the online model
-        if self.device == model_device:
-            yield self.ema_model
-        else:
-            # If cross-device, then backup-overwrite-restore
-            backup_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-            try:
-                # Load the EMA model to the online model
-                model.load_state_dict(self.ema_model.state_dict())
-                yield model
-            finally:
-                # Restore the original state
-                model.load_state_dict(backup_state)
-                del backup_state
+        with torch.no_grad():
+            # Use EMA model if the device is the same as the online model
+            if self.device == model_device:
+                yield self.ema_model
+            else:
+                # If cross-device, then backup-overwrite-restore
+                backup_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+                try:
+                    # Load the EMA model to the online model
+                    model.load_state_dict(self.ema_model.state_dict())
+                    yield model
+                finally:
+                    # Restore the original state
+                    model.load_state_dict(backup_state)
+                    del backup_state
