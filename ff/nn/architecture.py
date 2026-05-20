@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class SelfAttention2d(nn.Module):
+    """
+    Self-attention block for 2D images. Compatible with Flash Attention.
+    """
     def __init__(self, dim):
         super().__init__()
         self.conv_query = nn.Conv2d(dim, dim // 8, 1)
@@ -12,11 +15,11 @@ class SelfAttention2d(nn.Module):
     
     def forward(self, x, condition=None):
         b, c, h, w = x.shape
-        query = self.conv_query(x).view(b, c // 8, h * w).permute(0, 2, 1)
-        key = self.conv_key(x).view(b, c // 8, h * w).permute(0, 2, 1)
-        value = self.conv_value(x).view(b, c, h * w).permute(0, 2, 1)
-        attention = F.scaled_dot_product_attention(query, key, value)
-        attention = attention.permute(0, 2, 1).view(b, c, h, w)
+        query = self.conv_query(x).view(b, 1, c // 8, h * w).permute(0, 1, 3, 2).contiguous() # (B, 1, L, D_q)
+        key = self.conv_key(x).view(b, 1, c // 8, h * w).permute(0, 1, 3, 2).contiguous() # (B, 1, L, D_k)
+        value = self.conv_value(x).view(b, 1, c, h * w).permute(0, 1, 3, 2).contiguous() # (B, 1, L, D_v)
+        attention = F.scaled_dot_product_attention(query, key, value) # (B, 1, L, D_v)
+        attention = attention.permute(0, 1, 3, 2).view(b, c, h, w)
         return x + self.gamma * attention
 
 class ResidualBlock(nn.Module):
