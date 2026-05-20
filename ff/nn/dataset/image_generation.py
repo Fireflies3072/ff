@@ -26,10 +26,6 @@ class ImageGenerationGenericDataset(Dataset):
             # Assign handler
             if logic is not None:
                 self.handler_map[key] = self._logic_registry[logic]
-            # Preprocess
-            if logic == 'image_raw':
-                if hasattr(self.dataset, 'cast_column'):
-                    self.dataset = self.dataset.cast_column(key, Image(decode=False))
 
     def __getitem__(self, index):
         data = dict(self.dataset[index])
@@ -82,6 +78,10 @@ class ImageGenerationHFDataset(ImageGenerationGenericDataset):
             logic_map = {}
             if 'image' in dataset.column_names:
                 logic_map['image'] = 'image_raw'
+        
+        for key, logic in logic_map.items():
+            if logic == 'image_raw':
+                dataset = dataset.cast_column(key, Image(decode=False))
         
         # Initialize dataset
         super().__init__(dataset, image_size, logic_map)

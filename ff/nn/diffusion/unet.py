@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ..architecture import ResidualBlockWithEmbedding, SelfAttention2d
-from ..utils import get_sinusoidal_embedding
+from ..functional import get_sinusoidal_embedding
 
 class BaseUNet(nn.Module):
     # Attributes
