@@ -19,7 +19,8 @@ class ImageGenerationGenericDataset(Dataset):
         self._logic_registry = {
             'image_raw': self._handle_image_raw,
             'image_file': self._handle_image_file,
-            'data_f32': self._handle_data_f32
+            'data_f32': self._handle_data_f32,
+            'latent_scale': self._handle_latent_scale,
         }
 
         # Create handler map
@@ -27,8 +28,12 @@ class ImageGenerationGenericDataset(Dataset):
         logic_map = logic_map or {}
         for key, logic in logic_map.items():
             # Assign handler
-            if logic is not None:
+            if logic is None:
+                continue
+            elif logic in self._logic_registry:
                 self.handler_map[key] = self._logic_registry[logic]
+            else:
+                self.handler_map[key] = logic
 
     def __getitem__(self, index):
         data = dict(self.dataset[index])
@@ -59,6 +64,9 @@ class ImageGenerationGenericDataset(Dataset):
     
     def _handle_data_f32(self, data):
         return torch.tensor(data, dtype=torch.float32)
+    
+    def _handle_latent_scale(self, data):
+        return torch.tensor(data, dtype=torch.float32) * self.h5_attrs['scaling_factor']
     
     def _op_common_image(self, image):
         # Convert to BGR
@@ -114,6 +122,7 @@ class ImageGenerationLazyH5Dataset(ImageGenerationGenericDataset):
             if not self.keys:
                 raise ValueError(f"No dataset found in {self.data_path}")
             self.length = len(f[self.keys[0]])
+            self.h5_attrs = dict(f.attrs)
         
         super().__init__(None, image_size, logic_map)
     
@@ -137,6 +146,7 @@ class ImageGenerationInMemoryH5Dataset(ImageGenerationGenericDataset):
                 raise ValueError(f"No dataset found in {self.data_path}")
             self.length = len(f[keys[0]])
             self.h5_dataset = {key: f[key][:] for key in keys}
+            self.h5_attrs = dict(f.attrs)
 
         super().__init__(None, image_size, logic_map)
     
