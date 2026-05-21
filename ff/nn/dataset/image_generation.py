@@ -19,7 +19,7 @@ class ImageGenerationGenericDataset(Dataset):
         self._logic_registry = {
             'image_raw': self._handle_image_raw,
             'image_file': self._handle_image_file,
-            'data_tof32': self._handle_data_tof32
+            'data_f32': self._handle_data_f32
         }
 
         # Create handler map
@@ -57,7 +57,7 @@ class ImageGenerationGenericDataset(Dataset):
             raise FileNotFoundError(f"Image file not found: {filename}")
         return self._op_common_image(image)
     
-    def _handle_data_tof32(self, data):
+    def _handle_data_f32(self, data):
         return torch.tensor(data, dtype=torch.float32)
     
     def _op_common_image(self, image):
