@@ -5,6 +5,7 @@ import cv2
 import random
 import glob
 import os
+import h5py
 from datasets import Image, load_dataset
 import ff.cv as fcv
 
@@ -17,11 +18,13 @@ class ImageGenerationGenericDataset(Dataset):
         # Logic registry
         self._logic_registry = {
             'image_raw': self._handle_image_raw,
-            'image_file': self._handle_image_file
+            'image_file': self._handle_image_file,
+            'data_tof32': self._handle_data_tof32
         }
 
         # Create handler map
         self.handler_map = {}
+        logic_map = logic_map or {}
         for key, logic in logic_map.items():
             # Assign handler
             if logic is not None:
@@ -29,13 +32,16 @@ class ImageGenerationGenericDataset(Dataset):
 
     def __getitem__(self, index):
         data = dict(self.dataset[index])
+        return self._apply_handler(data)
+
+    def __len__(self):
+        return len(self.dataset)
+    
+    def _apply_handler(self, data):
         for key, handler in self.handler_map.items():
             if handler is not None:
                 data[key] = handler(data[key])
         return data
-
-    def __len__(self):
-        return len(self.dataset)
     
     def _handle_image_raw(self, image_data):
         if isinstance(image_data, dict) and 'bytes' in image_data:
@@ -50,6 +56,9 @@ class ImageGenerationGenericDataset(Dataset):
         if image is None:
             raise FileNotFoundError(f"Image file not found: {filename}")
         return self._op_common_image(image)
+    
+    def _handle_data_tof32(self, data):
+        return torch.tensor(data, dtype=torch.float32)
     
     def _op_common_image(self, image):
         # Convert to BGR
@@ -88,7 +97,52 @@ class ImageGenerationHFDataset(ImageGenerationGenericDataset):
 
 class ImageGenerationLocalDataset(ImageGenerationGenericDataset):
     def __init__(self, data_dir, image_size=(128, 128)):
+        self.data_dir = data_dir
+
         filenames = glob.glob(os.path.join(data_dir, '*'))
         dataset = [{"image": filename} for filename in filenames]
         logic_map = {'image': 'image_file'}
         super().__init__(dataset, image_size, logic_map)
+
+class ImageGenerationLazyH5Dataset(ImageGenerationGenericDataset):
+    def __init__(self, data_path, image_size=(128, 128), logic_map=None):
+        self.data_path = data_path
+        
+        self.h5_dataset = None
+        with h5py.File(self.data_path, 'r') as f:
+            self.keys = [key for key in f if isinstance(f[key], h5py.Dataset)]
+            if not self.keys:
+                raise ValueError(f"No dataset found in {self.data_path}")
+            self.length = len(f[self.keys[0]])
+        
+        super().__init__(None, image_size, logic_map)
+    
+    def __getitem__(self, index):
+        if self.h5_dataset is None:
+            self.h5_dataset = h5py.File(self.data_path, 'r')
+        data = {key: self.h5_dataset[key][index] for key in self.keys}
+        return self._apply_handler(data)
+    
+    def __len__(self):
+        return self.length
+
+class ImageGenerationInMemoryH5Dataset(ImageGenerationGenericDataset):
+    def __init__(self, data_path, image_size=(128, 128), logic_map=None):
+        self.data_path = data_path
+        
+        self.h5_dataset = {}
+        with h5py.File(self.data_path, 'r') as f:
+            keys = [key for key in f if isinstance(f[key], h5py.Dataset)]
+            if not keys:
+                raise ValueError(f"No dataset found in {self.data_path}")
+            self.length = len(f[keys[0]])
+            self.h5_dataset = {key: f[key][:] for key in keys}
+
+        super().__init__(None, image_size, logic_map)
+    
+    def __getitem__(self, index):
+        data = {key: self.h5_dataset[key][index] for key in self.h5_dataset}
+        return self._apply_handler(data)
+    
+    def __len__(self):
+        return self.length
