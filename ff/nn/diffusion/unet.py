@@ -2,13 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..architecture import ResidualBlockWithEmbedding, SelfAttention2d
-from ..functional import get_sinusoidal_embedding
+from ..architecture import ResidualBlockWithEmbedding, SelfAttention2d, SinusoidalEmbedding
 
 class BaseUNet(nn.Module):
-    # Attributes
-    time_embedding: torch.Tensor
-
     def __init__(self, num_channels=3, dim=64, embedding_dim=256,
                  layers=(1, 2, 2, 2), num_mid_layers=1, T=1000, condition_dim=0):
         super().__init__()
@@ -20,7 +16,7 @@ class BaseUNet(nn.Module):
         self.T = T
 
         # Embedding layers
-        self.register_buffer('time_embedding', get_sinusoidal_embedding(T, embedding_dim))
+        self.time_embedding = SinusoidalEmbedding(embedding_dim, T)
         self.embedding_mlp = nn.Sequential(
             nn.Linear(embedding_dim + condition_dim, embedding_dim * 4),
             nn.SiLU(),
@@ -120,7 +116,7 @@ class BaseUNet(nn.Module):
         return self.conv_out(h)
     
     def _get_embedding(self, t, condition=None):
-        t_embedding = self.time_embedding[t]
+        t_embedding = self.time_embedding(t)
         embedding = self.embedding_mlp(t_embedding)
         return embedding
 
@@ -142,7 +138,7 @@ class ClassConditionalUNet(BaseUNet):
         return super().forward(x, t, label)
     
     def _get_embedding(self, t, condition):
-        t_embedding = self.time_embedding[t]
+        t_embedding = self.time_embedding(t)
         l_embedding = self.label_embedding(condition)
         embedding = self.embedding_mlp(torch.cat([t_embedding, l_embedding], dim=1))
         return embedding
