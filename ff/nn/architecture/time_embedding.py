@@ -25,7 +25,7 @@ class SinusoidalEmbedding(nn.Module):
         embedding = torch.cat((angle.cos(), angle.sin()), dim=-1) # (B, D)
         return embedding
 
-class RotaryPositionEmbedding1D(nn.Module):
+class RotaryPositionEmbedding1d(nn.Module):
     # Attributes
     omega: torch.Tensor
 
@@ -88,7 +88,7 @@ class RotaryPositionEmbedding1D(nn.Module):
         # Apply rotation formula: x*cos + rotate_half(x)*sin
         return (x * cos) + (self._rotate_half(x) * sin)
 
-class RotaryPositionEmbedding2D(nn.Module):
+class RotaryPositionEmbedding2d(nn.Module):
     # Attributes
     omega: torch.Tensor
 
