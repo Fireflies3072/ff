@@ -6,7 +6,8 @@ import random
 import glob
 import os
 import h5py
-from datasets import Image, load_dataset
+import lance
+from datasets import Image, load_dataset, concatenate_datasets
 import ff.cv as fcv
 
 class ImageGenerationGenericDataset(Dataset):
@@ -83,12 +84,9 @@ class ImageGenerationGenericDataset(Dataset):
         return image_tensor
 
 class ImageGenerationHFDataset(ImageGenerationGenericDataset):
-    def __init__(self, hf_id, split='train', image_size=(128, 128), logic_map=None, **kwargs):
-        self.hf_id = hf_id
-        self.split = split
-
+    def __init__(self, hf_dataset, image_size, logic_map=None, **kwargs):
         # Load dataset
-        dataset = load_dataset(hf_id, split=split, **kwargs)
+        dataset = hf_dataset
 
         # Default handler map {'image': 'image_raw'}
         if logic_map is None:
@@ -96,6 +94,7 @@ class ImageGenerationHFDataset(ImageGenerationGenericDataset):
             if 'image' in dataset.column_names:
                 logic_map['image'] = 'image_raw'
         
+        # Disable image decoding if needed
         for key, logic in logic_map.items():
             if logic == 'image_raw':
                 dataset = dataset.cast_column(key, Image(decode=False))
@@ -103,8 +102,21 @@ class ImageGenerationHFDataset(ImageGenerationGenericDataset):
         # Initialize dataset
         super().__init__(dataset, image_size, logic_map)
 
+class ImageGenerationHFOnlineDataset(ImageGenerationHFDataset):
+    def __init__(self, hf_id, image_size, split=None, logic_map=None, **kwargs):
+        self.hf_id = hf_id
+        self.split = split
+
+        # Load dataset
+        dataset = load_dataset(hf_id, split=split, **kwargs)
+        if split is None:
+            dataset = concatenate_datasets(list(dataset.values()))
+
+        # Initialize dataset
+        super().__init__(dataset, image_size, logic_map)
+
 class ImageGenerationLocalDataset(ImageGenerationGenericDataset):
-    def __init__(self, data_dir, image_size=(128, 128)):
+    def __init__(self, data_dir, image_size):
         self.data_dir = data_dir
 
         filenames = glob.glob(os.path.join(data_dir, '*'))
@@ -113,7 +125,7 @@ class ImageGenerationLocalDataset(ImageGenerationGenericDataset):
         super().__init__(dataset, image_size, logic_map)
 
 class ImageGenerationLazyH5Dataset(ImageGenerationGenericDataset):
-    def __init__(self, data_path, image_size=(128, 128), logic_map=None):
+    def __init__(self, data_path, image_size, logic_map=None):
         self.data_path = data_path
         
         self.h5_dataset = None
@@ -136,7 +148,7 @@ class ImageGenerationLazyH5Dataset(ImageGenerationGenericDataset):
         return self.length
 
 class ImageGenerationInMemoryH5Dataset(ImageGenerationGenericDataset):
-    def __init__(self, data_path, image_size=(128, 128), logic_map=None):
+    def __init__(self, data_path, image_size, logic_map=None):
         self.data_path = data_path
         
         self.h5_dataset = {}
