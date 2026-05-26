@@ -1,15 +1,18 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from typing import Union
 
 from .. import architecture
 
 class DiTGeneric(nn.Module):
-    def __init__(self, size: int, patch_size: int, num_channels: int, dim: int,
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int,
                  num_layers: int, num_heads: int, use_resolution: bool, ndim: int):
         super().__init__()
-        self.size = size
-        self.patch_size = patch_size
+        if isinstance(patch_size, (list, tuple)):
+            assert len(patch_size) == ndim, f"patch_size length must match ndim {ndim}"
+            self.patch_size = tuple(patch_size)
+        else:
+            self.patch_size = (patch_size,) * ndim
         self.num_channels = num_channels
         self.dim = dim
         self.num_layers = num_layers
@@ -45,7 +48,8 @@ class DiTGeneric(nn.Module):
     def forward(self, x, t, **kwargs):
         # Size
         b, c, *spatial_shape = x.shape
-        grid_axes = [torch.arange(s, dtype=x.dtype, device=x.device) for s in spatial_shape]
+        grid_shape = tuple(s // p for s, p in zip(spatial_shape, self.patch_size))
+        grid_axes = [torch.arange(s, dtype=x.dtype, device=x.device) for s in grid_shape]
         grid = torch.meshgrid(*grid_axes, indexing='ij')
         grid = [g.reshape(-1) for g in grid]
 
@@ -57,7 +61,7 @@ class DiTGeneric(nn.Module):
         for block in self.blocks:
             x = block(x, embedding, self.rope, grid)
         # Unpatch
-        out = self.unpatch(x, spatial_shape)
+        out = self.unpatch(x, spatial_shape, grid_shape)
         
         return out
     
@@ -71,10 +75,9 @@ class DiTGeneric(nn.Module):
         return embedding
 
 class UnconditionalDiTGeneric(DiTGeneric):
-    def __init__(self, size: int, patch_size: int, num_channels: int, dim: int,
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int,
                  num_layers: int, num_heads: int, use_resolution: bool, ndim: int):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution, ndim)
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim)
 
         # DiT Blocks
         self.blocks = nn.ModuleList([architecture.DiTBlock(dim, num_heads) for _ in range(num_layers)])
@@ -83,28 +86,24 @@ class UnconditionalDiTGeneric(DiTGeneric):
         return super().forward(x, t)
 
 class UnconditionalDiT1d(UnconditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution=False, ndim=1)
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim=1)
 
 class UnconditionalDiT2d(UnconditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution=False, ndim=2)
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim=2)
 
 class UnconditionalDiT3d(UnconditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution=False, ndim=3)
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim=3)
 
 class ClassConditionalDiTGeneric(DiTGeneric):
-    def __init__(self, size: int, patch_size: int, num_channels: int, dim: int,
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int,
                  num_layers: int, num_heads: int, num_classes: int, use_resolution: bool, ndim: int):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution, ndim)
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim)
         self.num_classes = num_classes
 
         # DiT Blocks
@@ -122,27 +121,27 @@ class ClassConditionalDiTGeneric(DiTGeneric):
         return embedding
 
 class ClassConditionalDiT1d(ClassConditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, num_classes=10, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, num_classes: int=10, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim,
                          num_layers, num_heads, num_classes, use_resolution, ndim=1)
 
 class ClassConditionalDiT2d(ClassConditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, num_classes=10, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, num_classes: int=10, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim,
                          num_layers, num_heads, num_classes, use_resolution, ndim=2)
 
 class ClassConditionalDiT3d(ClassConditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, num_classes=10, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, num_classes: int=10, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim,
                          num_layers, num_heads, num_classes, use_resolution, ndim=3)
 
 class ContextConditionalDiTGeneric(DiTGeneric):
-    def __init__(self, size: int, patch_size: int, num_channels: int, dim: int,
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int,
                  num_layers: int, num_heads: int, use_resolution: bool, ndim: int):
-        super().__init__(size, patch_size, num_channels, dim,
+        super().__init__(patch_size, num_channels, dim,
                          num_layers, num_heads, use_resolution, ndim)
 
         # DiT Blocks
@@ -170,19 +169,16 @@ class ContextConditionalDiTGeneric(DiTGeneric):
         return out
 
 class ContextConditionalDiT1d(ContextConditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution=False, ndim=1)
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim=1)
 
 class ContextConditionalDiT2d(ContextConditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution=False, ndim=2)
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim=2)
 
 class ContextConditionalDiT3d(ContextConditionalDiTGeneric):
-    def __init__(self, size=32, patch_size=2, num_channels=3, dim=512,
-                 num_layers=12, num_heads=8, use_resolution=False):
-        super().__init__(size, patch_size, num_channels, dim,
-                         num_layers, num_heads, use_resolution=False, ndim=3)
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, use_resolution: bool=False):
+        super().__init__(patch_size, num_channels, dim, num_layers, num_heads, use_resolution, ndim=3)

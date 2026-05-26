@@ -6,8 +6,7 @@ import random
 import glob
 import os
 import h5py
-import lance
-from datasets import Image, load_dataset, concatenate_datasets
+from datasets import Image, load_dataset
 import ff.cv as fcv
 
 class ImageGenerationGenericDataset(Dataset):

@@ -1,19 +1,24 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from typing import Union
 from .time_embedding import SinusoidalEmbedding
 
 class DiTPatchBlockGeneric(nn.Module):
-    def __init__(self, patch_size: int, num_channels: int, dim: int, ndim: int):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int, ndim: int):
         super().__init__()
-        self.patch_size = patch_size
+        if isinstance(patch_size, (list, tuple)):
+            assert len(patch_size) == ndim, f"patch_size length must match ndim {ndim}"
+            self.patch_size = tuple(patch_size)
+        else:
+            self.patch_size = (patch_size,) * ndim
         self.num_channels = num_channels
         self.dim = dim
         self.ndim = ndim
         
         # Dynamic convolution class (nn.Conv1d, nn.Conv2d, nn.Conv3d)
         conv_class = getattr(nn, f"Conv{ndim}d")
-        self.conv = conv_class(num_channels, dim, kernel_size=patch_size, stride=patch_size)
+        self.conv = conv_class(num_channels, dim, kernel_size=self.patch_size, stride=self.patch_size)
 
     def forward(self, x):
         x = self.conv(x) # (b, d, w/p) or (b, d, h/p, w/p) or (b, d, depth/p, h/p, w/p)
@@ -22,21 +27,25 @@ class DiTPatchBlockGeneric(nn.Module):
         return x
 
 class DiTPatchBlock1d(DiTPatchBlockGeneric):
-    def __init__(self, patch_size, num_channels, dim):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int):
         super().__init__(patch_size, num_channels, dim, ndim=1)
 
 class DiTPatchBlock2d(DiTPatchBlockGeneric):
-    def __init__(self, patch_size, num_channels, dim):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int):
         super().__init__(patch_size, num_channels, dim, ndim=2)
 
 class DiTPatchBlock3d(DiTPatchBlockGeneric):
-    def __init__(self, patch_size, num_channels, dim):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int):
         super().__init__(patch_size, num_channels, dim, ndim=3)
 
 class DiTUnpatchBlockGeneric(nn.Module):
-    def __init__(self, patch_size: int, num_channels: int, dim: int, ndim: int):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int, ndim: int):
         super().__init__()
-        self.patch_size = patch_size
+        if isinstance(patch_size, (list, tuple)):
+            assert len(patch_size) == ndim, f"patch_size length must match ndim {ndim}"
+            self.patch_size = tuple(patch_size)
+        else:
+            self.patch_size = (patch_size,) * ndim
         self.num_channels = num_channels
         self.dim = dim
         self.ndim = ndim
@@ -46,16 +55,15 @@ class DiTUnpatchBlockGeneric(nn.Module):
             nn.Linear(dim, num_channels * (patch_size**ndim))
         )
 
-    def forward(self, x: torch.Tensor, spatial_shape: tuple):
+    def forward(self, x: torch.Tensor, spatial_shape: tuple, grid_shape: tuple):
         # x: (b, l, d)
         b = x.shape[0]
-        p = self.patch_size
         c = self.num_channels
         
         x = self.projection(x) # (b, l, c * p^ndim)
 
         # To (b, w/p, p, c) or (b, h/p, w/p, p, p, c) or (b, depth/p, h/p, w/p, p, p, p, c)
-        x = x.reshape(b, *spatial_shape, *([p] * self.ndim), c)
+        x = x.reshape(b, *grid_shape, *self.patch_size, c)
         
         # To (b, c, w/p, p) or (b, c, h/p, p, w/p, p) or (b, c, depth/p, p, h/p, p, w/p, p)
         permute_order = [0, 2 * self.ndim + 1]
@@ -68,15 +76,15 @@ class DiTUnpatchBlockGeneric(nn.Module):
         return out
 
 class DiTUnpatchBlock1d(DiTUnpatchBlockGeneric):
-    def __init__(self, patch_size, num_channels, dim):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int):
         super().__init__(patch_size, num_channels, dim, ndim=1)
 
 class DiTUnpatchBlock2d(DiTUnpatchBlockGeneric):
-    def __init__(self, patch_size, num_channels, dim):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int):
         super().__init__(patch_size, num_channels, dim, ndim=2)
 
 class DiTUnpatchBlock3d(DiTUnpatchBlockGeneric):
-    def __init__(self, patch_size, num_channels, dim):
+    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int):
         super().__init__(patch_size, num_channels, dim, ndim=3)
 
 class ResolutionEmbeddingGeneric(nn.Module):
@@ -99,7 +107,7 @@ class ResolutionEmbeddingGeneric(nn.Module):
             nn.Linear(dim, dim)
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         """
         Args:
             x: Input tensor (b, c, w) or (b, c, h, w) or (b, c, depth, h, w)
@@ -170,8 +178,8 @@ class DiTBlock(nn.Module):
         qkv = self.qkv_msa(x_msa).reshape(b, l, 3, self.num_heads, self.head_dim).permute(2, 0, 3, 1, 4)
         q, k, v = qkv[0], qkv[1], qkv[2] # (b, h, l, d)
         # Apply RoPE
-        q = rope(q, *grid)
-        k = rope(k, *grid)
+        q = rope(q, grid)
+        k = rope(k, grid)
         # Multi-head self-attention
         attention = F.scaled_dot_product_attention(q, k, v) # (b, h, l, d)
         attention = attention.transpose(1, 2).reshape(b, l, d)
