@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..architecture import *
+from .. import architecture
 
 class DiTGeneric(nn.Module):
     def __init__(self, size: int, patch_size: int, num_channels: int, dim: int,
@@ -18,25 +18,25 @@ class DiTGeneric(nn.Module):
         self.ndim = ndim
         
         # Patch
-        patch_class = getattr(nn, f"DiTPatchBlock{ndim}d")
+        patch_class = getattr(architecture, f"DiTPatchBlock{ndim}d")
         self.patch = patch_class(patch_size, num_channels, dim)
-        unpatch_class = getattr(nn, f"DiTUnpatchBlock{ndim}d")
+        unpatch_class = getattr(architecture, f"DiTUnpatchBlock{ndim}d")
         self.unpatch = unpatch_class(patch_size, num_channels, dim)
         
         # Time Embedding
         self.time_embedding = nn.Sequential(
-            SinusoidalEmbedding(dim),
+            architecture.SinusoidalEmbedding(dim),
             nn.Linear(dim, dim),
             nn.SiLU(),
             nn.Linear(dim, dim)
         )
         # Resolution Embedding
         if use_resolution:
-            resolution_embedding_class = getattr(nn, f"ResolutionEmbedding{ndim}d")
+            resolution_embedding_class = getattr(architecture, f"ResolutionEmbedding{ndim}d")
             self.resolution_embedding = resolution_embedding_class(dim)
         
         # RoPE
-        rope_class = getattr(nn, f"RotaryPositionEmbedding{ndim}d")
+        rope_class = getattr(architecture, f"RotaryPositionEmbedding{ndim}d")
         self.rope = rope_class(dim // num_heads)
         
         # DiT Blocks
@@ -77,7 +77,7 @@ class UnconditionalDiTGeneric(DiTGeneric):
                          num_layers, num_heads, use_resolution, ndim)
 
         # DiT Blocks
-        self.blocks = nn.ModuleList([DiTBlock(dim, num_heads) for _ in range(num_layers)])
+        self.blocks = nn.ModuleList([architecture.DiTBlock(dim, num_heads) for _ in range(num_layers)])
     
     def forward(self, x, t):
         return super().forward(x, t)
@@ -108,7 +108,7 @@ class ClassConditionalDiTGeneric(DiTGeneric):
         self.num_classes = num_classes
 
         # DiT Blocks
-        self.blocks = nn.ModuleList([DiTBlock(dim, num_heads) for _ in range(num_layers)])
+        self.blocks = nn.ModuleList([architecture.DiTBlock(dim, num_heads) for _ in range(num_layers)])
 
         # Label Embedding
         self.label_embedding = nn.Embedding(num_classes, dim)
@@ -146,7 +146,9 @@ class ContextConditionalDiTGeneric(DiTGeneric):
                          num_layers, num_heads, use_resolution, ndim)
 
         # DiT Blocks
-        self.blocks = nn.ModuleList([DiTBlockWithCrossAttention(dim, num_heads) for _ in range(num_layers)])
+        self.blocks = nn.ModuleList(
+            [architecture.DiTBlockWithCrossAttention(dim, num_heads) for _ in range(num_layers)]
+        )
     
     def forward(self, x, t, context, mask=None):
         # Size
