@@ -103,14 +103,12 @@ class ImageGenerationHFDataset(ImageGenerationGenericDataset):
         super().__init__(dataset, image_size, logic_map)
 
 class ImageGenerationHFOnlineDataset(ImageGenerationHFDataset):
-    def __init__(self, hf_id, image_size, split=None, logic_map=None, **kwargs):
+    def __init__(self, hf_id, image_size, split='all', logic_map=None, **kwargs):
         self.hf_id = hf_id
         self.split = split
 
         # Load dataset
         dataset = load_dataset(hf_id, split=split, **kwargs)
-        if split is None:
-            dataset = concatenate_datasets(list(dataset.values()))
 
         # Initialize dataset
         super().__init__(dataset, image_size, logic_map)

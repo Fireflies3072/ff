@@ -5,7 +5,7 @@ from pathlib import Path
 def count_params(model):
     return sum(p.numel() for p in model.parameters())
 
-def save_model(path, model, optimizer=None, epoch=None, info=None, simplified_model=None):
+def save_model(path, model, optimizer=None, scheduler=None, epoch=None, info=None, simplified_model=None):
     # Create directory
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -23,6 +23,12 @@ def save_model(path, model, optimizer=None, epoch=None, info=None, simplified_mo
             state['optimizer'] = [o.state_dict() for o in optimizer]
         else:
             state['optimizer'] = [optimizer.state_dict()]
+    # Extract scheduler parameters
+    if scheduler is not None:
+        if isinstance(scheduler, (list, tuple)):
+            state['scheduler'] = [s.state_dict() for s in scheduler]
+        else:
+            state['scheduler'] = [scheduler.state_dict()]
     # Other information
     if epoch is not None:
         state['epoch'] = epoch
@@ -37,7 +43,7 @@ def save_model(path, model, optimizer=None, epoch=None, info=None, simplified_mo
         else:
             torch.save({'model': [simplified_model.state_dict()]}, p.parent/f'{p.stem}_{epoch}{p.suffix}')
 
-def read_model(path, model, optimizer=None):
+def read_model(path, model, optimizer=None, scheduler=None):
     # If path is not a file, return default values
     if not Path(path).is_file():
         return 1, None
@@ -61,6 +67,14 @@ def read_model(path, model, optimizer=None):
                     optimizer[i].load_state_dict(checkpoint['optimizer'][i])
         else:
             optimizer.load_state_dict(checkpoint['optimizer'][0])
+    # Load scheduler parameters
+    if (scheduler is not None) and ('scheduler' in checkpoint):
+        if isinstance(scheduler, (list, tuple)):
+            for i in range(len(scheduler)):
+                if scheduler[i] is not None:
+                    scheduler[i].load_state_dict(checkpoint['scheduler'][i])
+        else:
+            scheduler.load_state_dict(checkpoint['scheduler'][0])
     # Load other parameters
     epoch = 1 if 'epoch' not in checkpoint else checkpoint['epoch'] + 1
     info = None if 'info' not in checkpoint else checkpoint['info']
