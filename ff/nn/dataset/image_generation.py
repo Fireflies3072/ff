@@ -89,8 +89,8 @@ class ImageGenerationLocalDataset(ImageGenerationDatasetGeneric):
     def __init__(self, data_dir, image_size):
         self.data_dir = data_dir
 
-        filenames = glob.glob(os.path.join(data_dir, '*'))
-        dataset = [{"image": filename} for filename in filenames]
+        paths = glob.glob(os.path.join(data_dir, '*'))
+        dataset = [{"image": path} for path in paths]
         logic_map = {'image': 'image_file'}
         super().__init__(dataset, image_size, logic_map)
 

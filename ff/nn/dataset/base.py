@@ -7,10 +7,10 @@ class DatasetGeneric(Dataset):
         self.logic_map = logic_map
 
         # Logic registry
-        if hasattr(self, '_logic_registry'):
-            self._logic_registry['data_f32'] = self._handle_data_f32
-        else:
-            self._logic_registry = {'data_f32': self._handle_data_f32}
+        if not hasattr(self, '_logic_registry'):
+            self._logic_registry = {}
+        self._logic_registry['data_f32'] = self._handle_data_f32
+        self._logic_registry['data_i64'] = self._handle_data_i64
 
         # Create handler map
         self.handler_map = {}
@@ -39,3 +39,6 @@ class DatasetGeneric(Dataset):
     
     def _handle_data_f32(self, data):
         return torch.tensor(data, dtype=torch.float32)
+    
+    def _handle_data_i64(self, data):
+        return torch.tensor(data, dtype=torch.int64)

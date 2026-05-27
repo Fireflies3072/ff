@@ -241,3 +241,22 @@ class DiTBlockWithCrossAttention(DiTBlock):
         attention = attention.transpose(1, 2).reshape(b, l, d)
         x += gate_mca.unsqueeze(1) * self.proj_mca(attention)
         return x
+
+class TimeEmbedding(nn.Module):
+    def __init__(self, dim: int):
+        """
+        Time embedding for DiT.
+        Args:
+            dim: Output dimension
+        """
+        super().__init__()
+        self.dim = dim
+        self.time_embedding = nn.Sequential(
+            SinusoidalEmbedding(dim),
+            nn.Linear(dim, dim),
+            nn.SiLU(),
+            nn.Linear(dim, dim)
+        )
+    
+    def forward(self, t: torch.Tensor):
+        return self.time_embedding(t)
