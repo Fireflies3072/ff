@@ -4,13 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ff"
-version = "0.1.0"
+version = "0.2.0"
 description = "Fireflies' personal utility library"
 authors = [
     {name = "Fireflies3072", email = "entroprune@gmail.com"}
 ]
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.10.0",
+    "torchvision>=0.25.0",
+    "opencv-python>=4.12.0",
+    "zarr>=3.2.0",
+    "datasets>=4.8.0",
+    "diffusers>=0.36.0",
+    "scipy>=1.17.0",
+]
 
 [tool.setuptools]
 packages = {find = {where = ["."]}}

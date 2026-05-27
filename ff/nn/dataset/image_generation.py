@@ -1,52 +1,28 @@
 import torch
-from torch.utils.data import Dataset
 import numpy as np
 import cv2
 import random
 import glob
 import os
-import h5py
+import zarr
 from datasets import Image, load_dataset
 import ff.cv as fcv
 
-class ImageGenerationGenericDataset(Dataset):
+from .base import DatasetGeneric
+
+class ImageGenerationDatasetGeneric(DatasetGeneric):
     def __init__(self, dataset, image_size, logic_map):
-        self.dataset = dataset
         self.image_size = image_size
-        self.logic_map = logic_map
 
         # Logic registry
         self._logic_registry = {
             'image_raw': self._handle_image_raw,
             'image_file': self._handle_image_file,
-            'data_f32': self._handle_data_f32,
             'latent_scale': self._handle_latent_scale,
         }
 
-        # Create handler map
-        self.handler_map = {}
-        logic_map = logic_map or {}
-        for key, logic in logic_map.items():
-            # Assign handler
-            if logic is None:
-                continue
-            elif logic in self._logic_registry:
-                self.handler_map[key] = self._logic_registry[logic]
-            else:
-                self.handler_map[key] = logic
-
-    def __getitem__(self, index):
-        data = dict(self.dataset[index])
-        return self._apply_handler(data)
-
-    def __len__(self):
-        return len(self.dataset)
-    
-    def _apply_handler(self, data):
-        for key, handler in self.handler_map.items():
-            if handler is not None:
-                data[key] = handler(data[key])
-        return data
+        # Initialize dataset
+        super().__init__(dataset, logic_map)
     
     def _handle_image_raw(self, image_data):
         if isinstance(image_data, dict) and 'bytes' in image_data:
@@ -61,9 +37,6 @@ class ImageGenerationGenericDataset(Dataset):
         if image is None:
             raise FileNotFoundError(f"Image file not found: {filename}")
         return self._op_common_image(image)
-    
-    def _handle_data_f32(self, data):
-        return torch.tensor(data, dtype=torch.float32)
     
     def _handle_latent_scale(self, data):
         return torch.tensor(data, dtype=torch.float32) * self.h5_attrs['scaling_factor']
@@ -82,7 +55,7 @@ class ImageGenerationGenericDataset(Dataset):
         image_tensor = torch.from_numpy(image).permute(2, 0, 1).float() / 127.5 - 1.0
         return image_tensor
 
-class ImageGenerationHFDataset(ImageGenerationGenericDataset):
+class ImageGenerationHfDataset(ImageGenerationDatasetGeneric):
     def __init__(self, hf_dataset, image_size, logic_map=None, **kwargs):
         # Load dataset
         dataset = hf_dataset
@@ -101,7 +74,7 @@ class ImageGenerationHFDataset(ImageGenerationGenericDataset):
         # Initialize dataset
         super().__init__(dataset, image_size, logic_map)
 
-class ImageGenerationHFOnlineDataset(ImageGenerationHFDataset):
+class ImageGenerationOnlineHfDataset(ImageGenerationHfDataset):
     def __init__(self, hf_id, image_size, split='all', logic_map=None, **kwargs):
         self.hf_id = hf_id
         self.split = split
@@ -112,7 +85,7 @@ class ImageGenerationHFOnlineDataset(ImageGenerationHFDataset):
         # Initialize dataset
         super().__init__(dataset, image_size, logic_map)
 
-class ImageGenerationLocalDataset(ImageGenerationGenericDataset):
+class ImageGenerationLocalDataset(ImageGenerationDatasetGeneric):
     def __init__(self, data_dir, image_size):
         self.data_dir = data_dir
 
@@ -121,46 +94,44 @@ class ImageGenerationLocalDataset(ImageGenerationGenericDataset):
         logic_map = {'image': 'image_file'}
         super().__init__(dataset, image_size, logic_map)
 
-class ImageGenerationLazyH5Dataset(ImageGenerationGenericDataset):
+class ImageGenerationLazyZarrDataset(ImageGenerationDatasetGeneric):
     def __init__(self, data_path, image_size, logic_map=None):
         self.data_path = data_path
         
-        self.h5_dataset = None
-        with h5py.File(self.data_path, 'r') as f:
-            self.keys = [key for key in f if isinstance(f[key], h5py.Dataset)]
-            if not self.keys:
-                raise ValueError(f"No dataset found in {self.data_path}")
-            self.length = len(f[self.keys[0]])
-            self.h5_attrs = dict(f.attrs)
-        
+        self.zarr_dataset = None
+        root = zarr.open(self.data_path, 'r')
+        self.keys = [name for name, _ in root.arrays()]
+        if not self.keys:
+            raise ValueError(f"No dataset found in {self.data_path}")
+        self.length = root[self.keys[0]].shape[0]
+
         super().__init__(None, image_size, logic_map)
     
     def __getitem__(self, index):
-        if self.h5_dataset is None:
-            self.h5_dataset = h5py.File(self.data_path, 'r')
-        data = {key: self.h5_dataset[key][index] for key in self.keys}
+        if self.zarr_dataset is None:
+            self.zarr_dataset = zarr.open(self.data_path, 'r')
+        data = {key: self.zarr_dataset[key][index] for key in self.keys}
         return self._apply_handler(data)
     
     def __len__(self):
         return self.length
 
-class ImageGenerationInMemoryH5Dataset(ImageGenerationGenericDataset):
+class ImageGenerationInMemoryZarrDataset(ImageGenerationDatasetGeneric):
     def __init__(self, data_path, image_size, logic_map=None):
         self.data_path = data_path
         
-        self.h5_dataset = {}
-        with h5py.File(self.data_path, 'r') as f:
-            keys = [key for key in f if isinstance(f[key], h5py.Dataset)]
-            if not keys:
-                raise ValueError(f"No dataset found in {self.data_path}")
-            self.length = len(f[keys[0]])
-            self.h5_dataset = {key: f[key][:] for key in keys}
-            self.h5_attrs = dict(f.attrs)
+        self.zarr_dataset = {}
+        root = zarr.open(self.data_path, 'r')
+        self.keys = [name for name, _ in root.arrays()]
+        if not self.keys:
+            raise ValueError(f"No dataset found in {self.data_path}")
+        self.length = root[self.keys[0]].shape[0]
+        self.zarr_dataset = {key: root[key][:] for key in self.keys}
 
         super().__init__(None, image_size, logic_map)
     
     def __getitem__(self, index):
-        data = {key: self.h5_dataset[key][index] for key in self.h5_dataset}
+        data = {key: self.zarr_dataset[key][index] for key in self.keys}
         return self._apply_handler(data)
     
     def __len__(self):

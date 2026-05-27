@@ -1,5 +1,8 @@
 from .general import *
-from .time_embedding import *
+from .time_embedding import (
+    SinusoidalEmbedding,
+    RotaryPositionEmbedding1d, RotaryPositionEmbedding2d, RotaryPositionEmbedding3d
+)
 from .dit import (
     DiTPatchBlock1d, DiTPatchBlock2d, DiTPatchBlock3d,
     DiTUnpatchBlock1d, DiTUnpatchBlock2d, DiTUnpatchBlock3d,

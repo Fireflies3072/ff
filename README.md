@@ -4,11 +4,16 @@ Fireflies' personal utility library for Python, focusing on computer vision and 
 
 ## Installation
 
-Install directly:
+Install directly with `pip`:
 
 ```bash
-pip uninstall ff -y
 pip install git+https://github.com/Fireflies3072/ff.git
+```
+
+Install directly with `uv`:
+
+```bash
+uv add git+https://github.com/Fireflies3072/ff.git
 ```
 
 To install the latest version from source:
