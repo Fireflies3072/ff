@@ -15,11 +15,11 @@ class VAEProcessor(nn.Module):
         latent = latent_dist.mode() if deterministic else latent_dist.sample()
         if use_scaling_factor:
             latent = latent * self.scaling_factor
-        return latent
+        return latent.detach()
 
     @torch.no_grad()
     def decode(self, x: torch.Tensor, use_scaling_factor: bool = True) -> torch.Tensor:
         if use_scaling_factor:
             x = x / self.scaling_factor
         out = self.vae_model.decode(x).sample
-        return out
+        return out.detach()
