@@ -45,12 +45,13 @@ def rescale_unit(data: torch.Tensor) -> torch.Tensor:
 def rescale_signed(data: torch.Tensor) -> torch.Tensor:
     return data * 2.0 - 1.0
 
-def create_normalizer(mean: Sequence[float], std: Sequence[float]) -> Callable[[torch.Tensor], torch.Tensor]:
-    mean_tensor = torch.tensor(mean).view(-1, 1, 1)
-    std_tensor = torch.tensor(std).view(-1, 1, 1)
-    def rescale(x: torch.Tensor) -> torch.Tensor:
-        return (x - mean_tensor) / std_tensor
-    return rescale
+class ImagenetRescaler:
+    def __init__(self):
+        self.mean_tensor = torch.tensor([0.485, 0.456, 0.406], dtype=torch.float32).view(3, 1, 1)
+        self.std_tensor = torch.tensor([0.229, 0.224, 0.225], dtype=torch.float32).view(3, 1, 1)
+    
+    def __call__(self, x: torch.Tensor) -> torch.Tensor:
+        return (x - self.mean_tensor) / self.std_tensor
 
 def image_to_signed(data: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(data).to(dtype=torch.float32).permute(2, 0, 1) / 127.5 - 1.0

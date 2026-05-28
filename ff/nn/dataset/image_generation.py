@@ -24,7 +24,7 @@ class ImageGenerationDatasetGeneric(DatasetGeneric):
             'hwc_to_chw': hwc_to_chw,
             'rescale_unit': rescale_unit,
             'rescale_signed': rescale_signed,
-            'rescale_imagenet': create_normalizer([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+            'rescale_imagenet': ImagenetRescaler(),
 
             # Intermediate operations
             'image_to_signed': image_to_signed,
