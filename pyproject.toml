@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ff"
-version = "0.3.4"
+version = "0.3.5"
 description = "Fireflies' personal utility library"
 authors = [
     {name = "Fireflies3072", email = "entroprune@gmail.com"}
@@ -19,7 +19,8 @@ dependencies = [
     "datasets>=4.8.0",
     "diffusers>=0.36.0",
     "transformers>=5.0.0",
-    "scipy>=1.17.0"
+    "scipy>=1.17.0",
+    "beartype>=0.22.0"
 ]
 
 [tool.setuptools]

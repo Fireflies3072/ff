@@ -1,5 +1,6 @@
 import torch
 from torch.utils.data import Dataset
+import numpy as np
 
 class DatasetGeneric(Dataset):
     def __init__(self, dataset, logic_map):
@@ -9,8 +10,11 @@ class DatasetGeneric(Dataset):
         # Logic registry
         if not hasattr(self, '_logic_registry'):
             self._logic_registry = {}
-        self._logic_registry['data_f32'] = self._handle_data_f32
-        self._logic_registry['data_i64'] = self._handle_data_i64
+        self._logic_registry['to_tensor'] = lambda x: torch.from_numpy(x) if isinstance(x, np.ndarray) else torch.tensor(x)
+        self._logic_registry['data_f32'] = lambda x: torch.tensor(x, dtype=torch.float32)
+        self._logic_registry['data_i64'] = lambda x: torch.tensor(x, dtype=torch.int64)
+        self._logic_registry['to_f32'] = lambda x: x.to(dtype=torch.float32)
+        self._logic_registry['to_i64'] = lambda x: x.to(dtype=torch.int64)
 
         # Create handler map
         self.handler_map = {}
@@ -19,10 +23,8 @@ class DatasetGeneric(Dataset):
             # Assign handler
             if logic is None:
                 continue
-            elif logic in self._logic_registry:
-                self.handler_map[key] = self._logic_registry[logic]
-            else:
-                self.handler_map[key] = logic
+            logics = logic if isinstance(logic, list) else [logic]
+            self.handler_map[key] = self._build_pipeline(logics)
 
     def __getitem__(self, index):
         data = dict(self.dataset[index])
@@ -37,8 +39,10 @@ class DatasetGeneric(Dataset):
                 data[key] = handler(data[key])
         return data
     
-    def _handle_data_f32(self, data):
-        return torch.tensor(data, dtype=torch.float32)
-    
-    def _handle_data_i64(self, data):
-        return torch.tensor(data, dtype=torch.int64)
+    def _build_pipeline(self, logics):
+        handlers = [self._logic_registry[l] if isinstance(l, str) else l for l in logics]
+        def pipeline(data):
+            for h in handlers:
+                data = h(data)
+            return data
+        return pipeline

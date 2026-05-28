@@ -6,9 +6,10 @@ import glob
 import os
 import zarr
 from datasets import Image, load_dataset
-import ff.cv as fcv
 
+from ... import cv as fcv
 from .base import DatasetGeneric
+from .ops import *
 
 class ImageGenerationDatasetGeneric(DatasetGeneric):
     def __init__(self, dataset, image_size, logic_map):
@@ -16,9 +17,21 @@ class ImageGenerationDatasetGeneric(DatasetGeneric):
 
         # Logic registry
         self._logic_registry = {
+            # Atomic operations
+            'read_image': lambda x: cv2.imread(x, cv2.IMREAD_COLOR),
+            'bgr_to_rgb': lambda x: cv2.cvtColor(x, cv2.COLOR_BGR2RGB),
+            'random_hflip': random_hflip,
+            'hwc_to_chw': lambda x: x.permute(2, 0, 1),
+            'rescale_unit': lambda x: x / 255.0,
+            'rescale_signed': lambda x: x * 2.0 - 1.0,
+            'rescale_imagenet': create_normalizer([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+
+            # Intermediate operations
+            'image_to_signed': image_to_signed,
+
+            # Advanced operations
             'image_raw': self._handle_image_raw,
-            'image_file': self._handle_image_file,
-            'latent_scale': self._handle_latent_scale,
+            'image_file': self._handle_image_file
         }
 
         # Initialize dataset
@@ -32,14 +45,11 @@ class ImageGenerationDatasetGeneric(DatasetGeneric):
             image_data = np.array(image_data)
         return self._op_common_image(image_data)
 
-    def _handle_image_file(self, filename):
-        image = cv2.imread(filename, cv2.IMREAD_COLOR)
+    def _handle_image_file(self, path):
+        image = cv2.imread(path, cv2.IMREAD_COLOR)
         if image is None:
-            raise FileNotFoundError(f"Image file not found: {filename}")
+            raise FileNotFoundError(f"Image file not found: {path}")
         return self._op_common_image(image)
-    
-    def _handle_latent_scale(self, data):
-        return torch.tensor(data, dtype=torch.float32) * self.h5_attrs['scaling_factor']
     
     def _op_common_image(self, image):
         # Convert to BGR
@@ -52,7 +62,7 @@ class ImageGenerationDatasetGeneric(DatasetGeneric):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         if random.random() > 0.5:
             image = cv2.flip(image, 1)
-        image_tensor = torch.from_numpy(image).permute(2, 0, 1).float() / 127.5 - 1.0
+        image_tensor = image_to_signed(image)
         return image_tensor
 
 class ImageGenerationHfDataset(ImageGenerationDatasetGeneric):

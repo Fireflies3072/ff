@@ -1,12 +1,13 @@
 import torch
 import torch.nn as nn
-from typing import Union
+from beartype import beartype
 
 from .. import architecture
 
+@beartype
 class DiTBaseGeneric(nn.Module):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int,
-                 num_layers: int, num_heads: int, conditioners: dict[str, nn.Module], ndim: int):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int,
+                 num_layers: int, num_heads: int, conditioners: dict[str, nn.Module]|None, ndim: int):
         super().__init__()
         if isinstance(patch_size, (list, tuple)):
             assert len(patch_size) == ndim, f"patch_size length must match ndim {ndim}"
@@ -17,7 +18,7 @@ class DiTBaseGeneric(nn.Module):
         self.dim = dim
         self.num_layers = num_layers
         self.num_heads = num_heads
-        self.conditioners = nn.ModuleDict(conditioners)
+        self.conditioners = conditioners
         self.ndim = ndim
         
         # Patch
@@ -38,6 +39,8 @@ class DiTBaseGeneric(nn.Module):
         if 'resolution' in self.conditioners and not isinstance(self.conditioners['resolution'], nn.Module):
             resolution_embedding_class = getattr(architecture, f"ResolutionEmbedding{ndim}d")
             self.conditioners['resolution'] = resolution_embedding_class(dim)
+        # Convert to ModuleDict
+        self.conditioners = nn.ModuleDict(self.conditioners)
         
         # RoPE
         rope_class = getattr(architecture, f"RotaryPositionEmbedding{ndim}d")
@@ -46,7 +49,7 @@ class DiTBaseGeneric(nn.Module):
         # DiT Blocks
         self.blocks = None
 
-    def forward(self, x, t, **kwargs):
+    def forward(self, x: torch.Tensor, t: torch.Tensor, **kwargs):
         # Size
         b, c, *spatial_shape = x.shape
         grid_shape = tuple(s // p for s, p in zip(spatial_shape, self.patch_size))
@@ -65,7 +68,7 @@ class DiTBaseGeneric(nn.Module):
         
         return out
     
-    def _get_embedding(self, x, t, **kwargs):
+    def _get_embedding(self, x: torch.Tensor, t: torch.Tensor, **kwargs):
         embedding = self.conditioners['time'](t)
         for key, conditioner in self.conditioners.items():
             if key == 'time':
@@ -76,25 +79,27 @@ class DiTBaseGeneric(nn.Module):
                 embedding += conditioner(kwargs[key])
         return embedding
     
-    def _forward_blocks(self, x, embedding, grid, **kwargs):
+    def _forward_blocks(self, x: torch.Tensor, embedding: torch.Tensor, grid: list[torch.Tensor], **kwargs):
         raise NotImplementedError('Subclasses must implement this method')
 
+@beartype
 class DiTGeneric(DiTBaseGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int,
-                 num_layers: int, num_heads: int, conditioners: dict[str, nn.Module], ndim: int):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int,
+                 num_layers: int, num_heads: int, conditioners: dict[str, nn.Module]|None, ndim: int):
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim)
         
         # DiT Blocks
         self.blocks = nn.ModuleList([architecture.DiTBlock(dim, num_heads) for _ in range(num_layers)])
     
-    def _forward_blocks(self, x, embedding, grid, **kwargs):
+    def _forward_blocks(self, x: torch.Tensor, embedding: torch.Tensor, grid: list[torch.Tensor], **kwargs):
         for block in self.blocks:
             x = block(x, embedding, self.rope, grid)
         return x
 
+@beartype
 class DiT1d(DiTGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
-                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]=None):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
         1D Diffusion Transformer.
 
@@ -113,9 +118,10 @@ class DiT1d(DiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=1)
 
+@beartype
 class DiT2d(DiTGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
-                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]=None):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
         2D Diffusion Transformer.
 
@@ -134,9 +140,10 @@ class DiT2d(DiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=2)
 
+@beartype
 class DiT3d(DiTGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
-                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]=None):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
         3D Diffusion Transformer.
 
@@ -155,9 +162,10 @@ class DiT3d(DiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=3)
 
+@beartype
 class ContextDiTGeneric(DiTBaseGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int,
-                 num_layers: int, num_heads: int, conditioners: dict[str, nn.Module], ndim: int):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int,
+                 num_layers: int, num_heads: int, conditioners: dict[str, nn.Module]|None, ndim: int):
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim)
 
         # DiT Blocks
@@ -165,7 +173,7 @@ class ContextDiTGeneric(DiTBaseGeneric):
             [architecture.DiTBlockWithCrossAttention(dim, num_heads) for _ in range(num_layers)]
         )
     
-    def _forward_blocks(self, x, embedding, grid, **kwargs):
+    def _forward_blocks(self, x: torch.Tensor, embedding: torch.Tensor, grid: list[torch.Tensor], **kwargs):
         # Get necessary args
         assert 'context' in kwargs, 'context is required'
         context = kwargs['context']
@@ -175,9 +183,10 @@ class ContextDiTGeneric(DiTBaseGeneric):
             x = block(x, embedding, context, self.rope, grid, mask)
         return x
 
+@beartype
 class ContextDiT1d(ContextDiTGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
-                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]=None):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
         1D Contextual Diffusion Transformer. This model includes cross-attention layers for conditioning on external context.
 
@@ -200,9 +209,10 @@ class ContextDiT1d(ContextDiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=1)
 
+@beartype
 class ContextDiT2d(ContextDiTGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
-                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]=None):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
         2D Contextual Diffusion Transformer. This model includes cross-attention layers for conditioning on external context.
 
@@ -225,9 +235,10 @@ class ContextDiT2d(ContextDiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=2)
 
+@beartype
 class ContextDiT3d(ContextDiTGeneric):
-    def __init__(self, patch_size: Union[int, tuple[int, ...]], num_channels: int, dim: int=768,
-                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]=None):
+    def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
+                 num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
         3D Contextual Diffusion Transformer. This model includes cross-attention layers for conditioning on external context.
 
