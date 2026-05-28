@@ -109,10 +109,18 @@ class ImageGenerationLazyZarrDataset(ImageGenerationDatasetGeneric):
         self.data_path = data_path
         
         root = zarr.open(self.data_path, mode='r')
-        self.keys = [name for name, _ in root.arrays()]
+        all_keys = [name for name, _ in root.arrays()]
+        if not all_keys:
+            raise ValueError(f"No dataset found in {data_path}. Check if the file is valid.")
+        
+        self.keys = all_keys if logic_map is None else [key for key in all_keys if key in logic_map]
         if not self.keys:
-            raise ValueError(f"No dataset found in {self.data_path}")
-        self.length = root[self.keys[0]].shape[0]
+            raise ValueError(f"No selected dataset found in {data_path}. Check logic_map. Available keys: {all_keys}")
+        
+        all_lengths = [root[key].shape[0] for key in self.keys]
+        if not all(lengths == lengths[0] for lengths in all_lengths):
+            raise ValueError(f"All selected datasets in {data_path} must have the same length. Available lengths: {all_lengths}")
+        self.length = all_lengths[0]
 
         super().__init__(None, image_size, logic_map)
     
@@ -130,11 +138,20 @@ class ImageGenerationInMemoryZarrDataset(ImageGenerationDatasetGeneric):
         self.data_path = data_path
         
         root = zarr.open(self.data_path, mode='r')
-        self.keys = [name for name, _ in root.arrays()]
+        all_keys = [name for name, _ in root.arrays()]
+        if not all_keys:
+            raise ValueError(f"No dataset found in {data_path}. Check if the file is valid.")
+        
+        self.keys = all_keys if logic_map is None else [key for key in all_keys if key in logic_map]
         if not self.keys:
-            raise ValueError(f"No dataset found in {self.data_path}")
-        self.length = root[self.keys[0]].shape[0]
-        dataset = {key: root[key][:] for key in self.keys}
+            raise ValueError(f"No selected dataset found in {data_path}. Check logic_map. Available keys: {all_keys}")
+        
+        all_lengths = [root[key].shape[0] for key in self.keys]
+        if not all(lengths == lengths[0] for lengths in all_lengths):
+            raise ValueError(f"All selected datasets in {data_path} must have the same length. Available lengths: {all_lengths}")
+        self.length = all_lengths[0]
+
+        dataset = {key: root[key][:] for key in all_keys}
 
         super().__init__(dataset, image_size, logic_map)
     
