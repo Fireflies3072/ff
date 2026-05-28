@@ -2,6 +2,15 @@ from torch.utils.data import Dataset
 
 from .ops import *
 
+class PipelineRunner:
+    def __init__(self, handlers):
+        self.handlers = handlers
+
+    def __call__(self, data):
+        for handler in self.handlers:
+            data = handler(data)
+        return data
+
 class DatasetGeneric(Dataset):
     def __init__(self, dataset, logic_map):
         self.dataset = dataset
@@ -41,8 +50,4 @@ class DatasetGeneric(Dataset):
     
     def _build_pipeline(self, logics):
         handlers = [self._logic_registry[l] if isinstance(l, str) else l for l in logics]
-        def pipeline(data):
-            for h in handlers:
-                data = h(data)
-            return data
-        return pipeline
+        return PipelineRunner(handlers)
