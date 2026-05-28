@@ -99,7 +99,7 @@ class ImageGenerationLazyZarrDataset(ImageGenerationDatasetGeneric):
         self.data_path = data_path
         
         self.zarr_dataset = None
-        root = zarr.open(self.data_path, 'r')
+        root = zarr.open(self.data_path, mode='r')
         self.keys = [name for name, _ in root.arrays()]
         if not self.keys:
             raise ValueError(f"No dataset found in {self.data_path}")
@@ -109,7 +109,7 @@ class ImageGenerationLazyZarrDataset(ImageGenerationDatasetGeneric):
     
     def __getitem__(self, index):
         if self.zarr_dataset is None:
-            self.zarr_dataset = zarr.open(self.data_path, 'r')
+            self.zarr_dataset = zarr.open(self.data_path, mode='r')
         data = {key: self.zarr_dataset[key][index] for key in self.keys}
         return self._apply_handler(data)
     
@@ -121,7 +121,7 @@ class ImageGenerationInMemoryZarrDataset(ImageGenerationDatasetGeneric):
         self.data_path = data_path
         
         self.zarr_dataset = {}
-        root = zarr.open(self.data_path, 'r')
+        root = zarr.open(self.data_path, mode='r')
         self.keys = [name for name, _ in root.arrays()]
         if not self.keys:
             raise ValueError(f"No dataset found in {self.data_path}")
