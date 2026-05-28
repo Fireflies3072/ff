@@ -4,10 +4,46 @@ import random
 import cv2
 from collections.abc import Sequence
 
+def to_tensor(data: np.ndarray|torch.Tensor) -> torch.Tensor:
+    if isinstance(data, np.ndarray):
+        return torch.from_numpy(data)
+    return torch.tensor(data)
+
+def data_f32(data: np.ndarray|torch.Tensor) -> torch.Tensor:
+    if isinstance(data, np.ndarray):
+        return torch.from_numpy(data).to(dtype=torch.float32)
+    return torch.tensor(data, dtype=torch.float32)
+
+def data_i64(data: np.ndarray|torch.Tensor) -> torch.Tensor:
+    if isinstance(data, np.ndarray):
+        return torch.from_numpy(data).to(dtype=torch.int64)
+    return torch.tensor(data, dtype=torch.int64)
+
+def to_f32(data: torch.Tensor) -> torch.Tensor:
+    return data.to(dtype=torch.float32)
+
+def to_i64(data: torch.Tensor) -> torch.Tensor:
+    return data.to(dtype=torch.int64)
+
+def read_image(path: str) -> np.ndarray:
+    return cv2.imread(path, cv2.IMREAD_COLOR)
+
+def bgr_to_rgb(data: np.ndarray) -> np.ndarray:
+    return cv2.cvtColor(data, cv2.COLOR_BGR2RGB)
+
 def random_hflip(data: np.ndarray|torch.Tensor) -> np.ndarray|torch.Tensor:
     if isinstance(data, torch.Tensor):
         return torch.flip(data, dims=[-1]) if random.random() > 0.5 else data
     return cv2.flip(data, 1) if random.random() > 0.5 else data
+
+def hwc_to_chw(data: torch.Tensor) -> torch.Tensor:
+    return data.permute(2, 0, 1)
+
+def rescale_unit(data: torch.Tensor) -> torch.Tensor:
+    return data / 255.0
+
+def rescale_signed(data: torch.Tensor) -> torch.Tensor:
+    return data * 2.0 - 1.0
 
 def create_normalizer(mean: Sequence[float], std: Sequence[float]) -> callable:
     mean_tensor = torch.tensor(mean).view(-1, 1, 1)

@@ -18,12 +18,12 @@ class ImageGenerationDatasetGeneric(DatasetGeneric):
         # Logic registry
         self._logic_registry = {
             # Atomic operations
-            'read_image': lambda x: cv2.imread(x, cv2.IMREAD_COLOR),
-            'bgr_to_rgb': lambda x: cv2.cvtColor(x, cv2.COLOR_BGR2RGB),
+            'read_image': read_image,
+            'bgr_to_rgb': bgr_to_rgb,
             'random_hflip': random_hflip,
-            'hwc_to_chw': lambda x: x.permute(2, 0, 1),
-            'rescale_unit': lambda x: x / 255.0,
-            'rescale_signed': lambda x: x * 2.0 - 1.0,
+            'hwc_to_chw': hwc_to_chw,
+            'rescale_unit': rescale_unit,
+            'rescale_signed': rescale_signed,
             'rescale_imagenet': create_normalizer([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
 
             # Intermediate operations

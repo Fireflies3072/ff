@@ -1,6 +1,6 @@
-import torch
 from torch.utils.data import Dataset
-import numpy as np
+
+from .ops import *
 
 class DatasetGeneric(Dataset):
     def __init__(self, dataset, logic_map):
@@ -10,11 +10,11 @@ class DatasetGeneric(Dataset):
         # Logic registry
         if not hasattr(self, '_logic_registry'):
             self._logic_registry = {}
-        self._logic_registry['to_tensor'] = lambda x: torch.from_numpy(x) if isinstance(x, np.ndarray) else torch.tensor(x)
-        self._logic_registry['data_f32'] = lambda x: torch.tensor(x, dtype=torch.float32)
-        self._logic_registry['data_i64'] = lambda x: torch.tensor(x, dtype=torch.int64)
-        self._logic_registry['to_f32'] = lambda x: x.to(dtype=torch.float32)
-        self._logic_registry['to_i64'] = lambda x: x.to(dtype=torch.int64)
+        self._logic_registry['to_tensor'] = to_tensor
+        self._logic_registry['data_f32'] = data_f32
+        self._logic_registry['data_i64'] = data_i64
+        self._logic_registry['to_f32'] = to_f32
+        self._logic_registry['to_i64'] = to_i64
 
         # Create handler map
         self.handler_map = {}
