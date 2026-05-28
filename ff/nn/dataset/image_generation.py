@@ -118,7 +118,7 @@ class ImageGenerationLazyZarrDataset(ImageGenerationDatasetGeneric):
             raise ValueError(f"No selected dataset found in {data_path}. Check logic_map. Available keys: {all_keys}")
         
         all_lengths = [root[key].shape[0] for key in self.keys]
-        if not all(lengths == lengths[0] for lengths in all_lengths):
+        if not all(length == all_lengths[0] for length in all_lengths):
             raise ValueError(f"All selected datasets in {data_path} must have the same length. Available lengths: {all_lengths}")
         self.length = all_lengths[0]
 
@@ -147,7 +147,7 @@ class ImageGenerationInMemoryZarrDataset(ImageGenerationDatasetGeneric):
             raise ValueError(f"No selected dataset found in {data_path}. Check logic_map. Available keys: {all_keys}")
         
         all_lengths = [root[key].shape[0] for key in self.keys]
-        if not all(lengths == lengths[0] for lengths in all_lengths):
+        if not all(length == all_lengths[0] for length in all_lengths):
             raise ValueError(f"All selected datasets in {data_path} must have the same length. Available lengths: {all_lengths}")
         self.length = all_lengths[0]
 
