@@ -45,22 +45,22 @@ class VGG16PerceptualLossModel(nn.Module):
         
         # Stage 1
         h_pred, h_target = self.slice1(pred), self.slice1(target)
-        loss += F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
+        loss = loss + F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
         
         # Stage 2
         h_pred, h_target = self.slice2(h_pred), self.slice2(h_target)
-        loss += F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
+        loss = loss + F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
         
         # Stage 3
         h_pred, h_target = self.slice3(h_pred), self.slice3(h_target)
-        loss += F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
+        loss = loss + F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
         
         # Stage 4
         h_pred, h_target = self.slice4(h_pred), self.slice4(h_target)
-        loss += F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
+        loss = loss + F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
         
         # Stage 5
         h_pred, h_target = self.slice5(h_pred), self.slice5(h_target)
-        loss += F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
+        loss = loss + F.mse_loss(self._normalize_tensor(h_pred), self._normalize_tensor(h_target))
         
         return loss

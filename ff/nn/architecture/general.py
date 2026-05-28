@@ -73,7 +73,7 @@ class ResidualBlockWithEmbedding(ResidualBlock):
 
     def forward(self, x, embedding):
         h = self.conv1(x)
-        h += self.embedding_mlp(embedding)[:, :, None, None]
+        h = h + self.embedding_mlp(embedding)[:, :, None, None]
         h = self.conv2_pre(h)
         h = self.conv2(h)
         return h + self.shortcut(x)

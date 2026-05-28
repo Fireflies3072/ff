@@ -183,7 +183,7 @@ class DiTBlock(nn.Module):
         # Multi-head self-attention
         attention = F.scaled_dot_product_attention(q, k, v) # (b, h, l, d)
         attention = attention.transpose(1, 2).reshape(b, l, d)
-        x += gate_msa.unsqueeze(1) * self.proj_msa(attention)
+        x = x + gate_msa.unsqueeze(1) * self.proj_msa(attention)
         return x
     
     def _mlp(self, x, shift_mlp, scale_mlp, gate_mlp):
@@ -191,7 +191,7 @@ class DiTBlock(nn.Module):
         x_mlp = self.norm_mlp(x) * (1 + scale_mlp.unsqueeze(1)) + shift_mlp.unsqueeze(1) # (b, l, d)
         # MLP
         x_mlp = self.proj_mlp(x_mlp)
-        x += gate_mlp.unsqueeze(1) * x_mlp
+        x = x + gate_mlp.unsqueeze(1) * x_mlp
         return x
 
 class DiTBlockWithCrossAttention(DiTBlock):
@@ -239,7 +239,7 @@ class DiTBlockWithCrossAttention(DiTBlock):
         # Multi-head cross-attention
         attention = F.scaled_dot_product_attention(q, k, v, attn_mask=mask) # (b, h, l, d)
         attention = attention.transpose(1, 2).reshape(b, l, d)
-        x += gate_mca.unsqueeze(1) * self.proj_mca(attention)
+        x = x + gate_mca.unsqueeze(1) * self.proj_mca(attention)
         return x
 
 class TimeEmbedding(nn.Module):

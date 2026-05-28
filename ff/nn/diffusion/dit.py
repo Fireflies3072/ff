@@ -74,9 +74,9 @@ class DiTBaseGeneric(nn.Module):
             if key == 'time':
                 continue
             elif key == 'resolution':
-                embedding += conditioner(x)
+                embedding = embedding + conditioner(x)
             else:
-                embedding += conditioner(kwargs[key])
+                embedding = embedding + conditioner(kwargs[key])
         return embedding
     
     def _forward_blocks(self, x: torch.Tensor, embedding: torch.Tensor, grid: list[torch.Tensor], **kwargs):
