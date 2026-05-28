@@ -108,7 +108,6 @@ class ImageGenerationLazyZarrDataset(ImageGenerationDatasetGeneric):
     def __init__(self, data_path, image_size, logic_map=None):
         self.data_path = data_path
         
-        self.zarr_dataset = None
         root = zarr.open(self.data_path, mode='r')
         self.keys = [name for name, _ in root.arrays()]
         if not self.keys:
@@ -118,9 +117,9 @@ class ImageGenerationLazyZarrDataset(ImageGenerationDatasetGeneric):
         super().__init__(None, image_size, logic_map)
     
     def __getitem__(self, index):
-        if self.zarr_dataset is None:
-            self.zarr_dataset = zarr.open(self.data_path, mode='r')
-        data = {key: self.zarr_dataset[key][index] for key in self.keys}
+        if self.dataset is None:
+            self.dataset = zarr.open(self.data_path, mode='r')
+        data = {key: self.dataset[key][index] for key in self.keys}
         return self._apply_handler(data)
     
     def __len__(self):
@@ -130,18 +129,17 @@ class ImageGenerationInMemoryZarrDataset(ImageGenerationDatasetGeneric):
     def __init__(self, data_path, image_size, logic_map=None):
         self.data_path = data_path
         
-        self.zarr_dataset = {}
         root = zarr.open(self.data_path, mode='r')
         self.keys = [name for name, _ in root.arrays()]
         if not self.keys:
             raise ValueError(f"No dataset found in {self.data_path}")
         self.length = root[self.keys[0]].shape[0]
-        self.zarr_dataset = {key: root[key][:] for key in self.keys}
+        dataset = {key: root[key][:] for key in self.keys}
 
-        super().__init__(None, image_size, logic_map)
+        super().__init__(dataset, image_size, logic_map)
     
     def __getitem__(self, index):
-        data = {key: self.zarr_dataset[key][index] for key in self.keys}
+        data = {key: self.dataset[key][index] for key in self.keys}
         return self._apply_handler(data)
     
     def __len__(self):
