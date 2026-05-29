@@ -14,9 +14,9 @@ def save_model(path, model, optimizer=None, scheduler=None, epoch=None, info=Non
 
     # Extract model parameters
     if isinstance(model, (list, tuple)):
-        state['model'] = [m.state_dict() for m in model]
+        state['model'] = [m._orig_mod.state_dict() if hasattr(m, '_orig_mod') else m.state_dict() for m in model]
     else:
-        state['model'] = [model.state_dict()]
+        state['model'] = [model._orig_mod.state_dict() if hasattr(model, '_orig_mod') else model.state_dict()]
     # Extract optimizer parameters
     if optimizer is not None:
         if isinstance(optimizer, (list, tuple)):
