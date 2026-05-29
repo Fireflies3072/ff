@@ -2,7 +2,6 @@ import torch
 import numpy as np
 import random
 import cv2
-from collections.abc import Sequence, Callable
 
 def to_tensor(data: np.ndarray|torch.Tensor) -> torch.Tensor:
     if isinstance(data, np.ndarray):
@@ -33,7 +32,7 @@ def bgr_to_rgb(data: np.ndarray) -> np.ndarray:
 
 def random_hflip(data: np.ndarray|torch.Tensor) -> np.ndarray|torch.Tensor:
     if isinstance(data, torch.Tensor):
-        return torch.flip(data, dims=[-1]) if random.random() > 0.5 else data
+        return torch.flip(data, dims=[-1]) if torch.rand(1) > 0.5 else data
     return cv2.flip(data, 1) if random.random() > 0.5 else data
 
 def hwc_to_chw(data: torch.Tensor) -> torch.Tensor:
