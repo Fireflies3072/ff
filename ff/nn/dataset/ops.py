@@ -32,8 +32,8 @@ def bgr_to_rgb(data: np.ndarray) -> np.ndarray:
 
 def random_hflip(data: np.ndarray|torch.Tensor) -> np.ndarray|torch.Tensor:
     if isinstance(data, torch.Tensor):
-        return torch.flip(data, dims=[-1]) if torch.rand(1) > 0.5 else data
-    return cv2.flip(data, 1) if random.random() > 0.5 else data
+        return torch.flip(data, dims=[-1]) if random.random() < 0.5 else data
+    return cv2.flip(data, 1) if random.random() < 0.5 else data
 
 def hwc_to_chw(data: torch.Tensor) -> torch.Tensor:
     return data.permute(2, 0, 1)

@@ -3,8 +3,8 @@ import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel, AutoConfig, CLIPTextModel, T5EncoderModel
 from beartype import beartype
 
-@beartype
 class TextEncoderProcessor(nn.Module):
+    @beartype
     def __init__(self, model_id: str='openai/clip-vit-large-patch14'):
         super().__init__()
         self.tokenizer = AutoTokenizer.from_pretrained(model_id)

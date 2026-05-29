@@ -4,8 +4,8 @@ from beartype import beartype
 
 from .. import architecture
 
-@beartype
 class DiTBaseGeneric(nn.Module):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int,
                  num_layers: int, num_heads: int, conditioners: dict[str, nn.Module]|None, ndim: int):
         super().__init__()
@@ -82,8 +82,8 @@ class DiTBaseGeneric(nn.Module):
     def _forward_blocks(self, x: torch.Tensor, embedding: torch.Tensor, grid: list[torch.Tensor], **kwargs):
         raise NotImplementedError('Subclasses must implement this method')
 
-@beartype
 class DiTGeneric(DiTBaseGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int,
                  num_layers: int, num_heads: int, conditioners: dict[str, nn.Module]|None, ndim: int):
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim)
@@ -96,8 +96,8 @@ class DiTGeneric(DiTBaseGeneric):
             x = block(x, embedding, self.rope, grid)
         return x
 
-@beartype
 class DiT1d(DiTGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
                  num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
@@ -118,8 +118,8 @@ class DiT1d(DiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=1)
 
-@beartype
 class DiT2d(DiTGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
                  num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
@@ -140,8 +140,8 @@ class DiT2d(DiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=2)
 
-@beartype
 class DiT3d(DiTGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
                  num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
@@ -162,8 +162,8 @@ class DiT3d(DiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=3)
 
-@beartype
 class ContextDiTGeneric(DiTBaseGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int,
                  num_layers: int, num_heads: int, conditioners: dict[str, nn.Module]|None, ndim: int):
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim)
@@ -183,8 +183,8 @@ class ContextDiTGeneric(DiTBaseGeneric):
             x = block(x, embedding, context, self.rope, grid, mask)
         return x
 
-@beartype
 class ContextDiT1d(ContextDiTGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
                  num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
@@ -209,8 +209,8 @@ class ContextDiT1d(ContextDiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=1)
 
-@beartype
 class ContextDiT2d(ContextDiTGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
                  num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """
@@ -235,8 +235,8 @@ class ContextDiT2d(ContextDiTGeneric):
         """
         super().__init__(patch_size, num_channels, dim, num_layers, num_heads, conditioners, ndim=2)
 
-@beartype
 class ContextDiT3d(ContextDiTGeneric):
+    @beartype
     def __init__(self, patch_size: int|tuple[int, ...], num_channels: int, dim: int=768,
                  num_layers: int=12, num_heads: int=12, conditioners: dict[str, nn.Module]|None=None):
         """

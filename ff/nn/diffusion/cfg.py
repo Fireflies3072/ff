@@ -9,9 +9,9 @@ class CFGScaleGeneric:
     def post_process(self, out_cfg: torch.Tensor, out_c: torch.Tensor) -> torch.Tensor:
         return out_cfg
 
-@beartype
 class CFGModel(nn.Module):
-    def __init__(self, model, guidance_scale: float | CFGScaleGeneric = 7.0):
+    @beartype
+    def __init__(self, model: nn.Module, guidance_scale: float | CFGScaleGeneric = 7.0):
         """
         Classifier-Free Guidance (CFG) wrapper for a diffusion model.
 
@@ -67,16 +67,16 @@ class CFGModel(nn.Module):
             return self.guidance_scale.post_process(out_cfg, out_c)
         return out_cfg
 
-@beartype
 class CFGConstantScale(CFGScaleGeneric):
+    @beartype
     def __init__(self, scale: float=7.0):
         self.scale = scale
     
     def __call__(self, t: torch.Tensor) -> torch.Tensor:
         return torch.full_like(t, self.scale)
 
-@beartype
 class CFGLinearScale(CFGScaleGeneric):
+    @beartype
     def __init__(self, scale_max: float=7.0, scale_min: float=1.0):
         """
         Linear CFG scale scheduler.
@@ -94,8 +94,8 @@ class CFGLinearScale(CFGScaleGeneric):
         # t=0 -> s_max; t=1 -> s_min
         return self.scale_max + (self.scale_min - self.scale_max) * t
 
-@beartype
 class CFGCosineScale(CFGScaleGeneric):
+    @beartype
     def __init__(self, scale_max: float=7.0, scale_min: float=1.0):
         """
         Cosine CFG scale scheduler.
@@ -113,8 +113,8 @@ class CFGCosineScale(CFGScaleGeneric):
         alpha = torch.cos(t * (torch.pi / 2))
         return self.scale_min + (self.scale_max - self.scale_min) * alpha
 
-@beartype
 class CFGIntervalScale(CFGScaleGeneric):
+    @beartype
     def __init__(self, scale_max: float=7.0, scale_min: float=1.0, t_threshold: float = 0.9):
         """
         Interval-based CFG scale scheduler.
@@ -135,8 +135,8 @@ class CFGIntervalScale(CFGScaleGeneric):
         scale[t > self.t_threshold] = self.scale_min
         return scale
 
-@beartype
 class CFGCorrectedScale(CFGScaleGeneric):
+    @beartype
     def __init__(self, scale: float=7.0, factor: float=0.7):
         """
         Corrected CFG scale with standard deviation rescaling.
