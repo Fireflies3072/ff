@@ -24,6 +24,12 @@ cd ff
 pip install .
 ```
 
+## Notes
+
+On Linux, import order is not an issue. On Windows, importing `torch` **before** `pyarrow>=24.0` can cause a very long hang. Older versions of `pyarrow` are unaffected.
+
+If you need both, import libraries that pull in `pyarrow` first (for example `datasets`), then import `torch`. Because `ff.nn` uses both, import `ff.nn` as early as possible in your project so the safe order is applied automatically.
+
 ## Features
 
 ### Computer Vision (`ff.cv`)
