@@ -3,7 +3,7 @@ import torch
 from pathlib import Path
 
 def count_params(model):
-    return sum(p.numel() for p in model.parameters())
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def save_model(path, model, optimizer=None, scheduler=None, epoch=None, info=None, simplified_model=None):
     # Create directory

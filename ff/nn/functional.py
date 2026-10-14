@@ -2,9 +2,7 @@ import torch
 from scipy.optimize import linear_sum_assignment
 
 def calculate_gradient_penalty(real, fake, D):
-    """
-    Calculate the gradient penalty for the discriminator in WGAN-GP.
-    """
+    """Calculate the gradient penalty for the discriminator in WGAN-GP."""
     b = real.shape[0]
     n = len(real.shape) - 1
     alpha = torch.rand(b, *[1] * n, device=real.device)
@@ -16,10 +14,10 @@ def calculate_gradient_penalty(real, fake, D):
     return gradient_penalty
 
 def calculate_grad_norm_weight(loss1, loss2, ref_param, eps=1e-4, clamp_range=(0.0, 1000.0)):
+    """Calculate the weight of the auxiliary loss(loss2) based on the ratio of the gradient
+    norm of the two losses with respect to a shared parameter(usually the last layer).
     """
-    Calculate the weight of the auxiliary loss(loss2) based on the ratio of the gradient norm
-    of the two losses with respect to a shared parameter(usually the last layer).
-    """
+    
     # Calculate the gradients of losses with respect to the reference parameter
     grad1 = torch.autograd.grad(loss1, ref_param, retain_graph=True)[0]
     grad2 = torch.autograd.grad(loss2, ref_param, retain_graph=True)[0]
@@ -29,13 +27,15 @@ def calculate_grad_norm_weight(loss1, loss2, ref_param, eps=1e-4, clamp_range=(0
     return weight
 
 def get_optimal_transport_noise(x: torch.Tensor) -> torch.Tensor:
-    """
-    Get optimal transport noise for a given tensor in flow matching training.
+    """Get optimal transport noise for a given tensor in flow matching training.
+
     Args:
         x: Tensor to get optimal transport noise for.
+    
     Returns:
         Optimal transport noise.
     """
+
     b = x.shape[0]
     noise = torch.randn_like(x, dtype=x.dtype, device=x.device)
     with torch.no_grad():
