@@ -21,23 +21,22 @@ class PMLSettings:
 
 
 class HelmholtzScene:
-    def __init__(self, c: np.ndarray, rho: np.ndarray, source: np.ndarray, dx: float,
+    def __init__(self, c: np.ndarray, rho: np.ndarray, dx: float,
                     pml: PMLSettings | None = None):
         """Physical medium, source map, and PML on a uniform Cartesian grid.
 
         Args:
             c: Map of sound speed (m/s)
             rho: Map of density (kg/m^3)
-            source: Source map (kg/m^3 s)
             dx: Grid spacing (m)
             pml: PML settings
         """
 
         # Validate input arrays
-        if c.ndim not in (2, 3) or rho.ndim not in (2, 3) or source.ndim not in (2, 3):
-            raise ValueError("c, rho and source must be 2-D or 3-D arrays")
-        if c.shape != rho.shape or source.shape != c.shape:
-            raise ValueError("c, rho and source must have the same shape")
+        if c.ndim not in (2, 3) or rho.ndim not in (2, 3):
+            raise ValueError("c and rho must be 2-D or 3-D arrays")
+        if c.shape != rho.shape:
+            raise ValueError("c and rho must have the same shape")
         if np.any(c <= 0.0) or np.any(rho <= 0.0):
             raise ValueError("c and rho must be positive")
         if dx <= 0.0:
@@ -46,7 +45,6 @@ class HelmholtzScene:
         # Store input variables
         self.c = c
         self.rho = rho
-        self.source = source
         self.dx = dx
 
         # Build PML settings
@@ -87,11 +85,13 @@ class HelmholtzMatrixSolver2d:
         
         self.c = np.pad(scene.c, pml_thickness, mode="edge")
         self.rho = np.pad(scene.rho, pml_thickness, mode="edge")
-        self.source = np.pad(scene.source, pml_thickness, mode="constant")
 
         self.shape = self.c.shape
         self.n = int(np.prod(self.shape))
         self.c_ref = float(np.mean(scene.c))
+
+        self.A = self.assemble()
+        self.lu = spla.splu(self.A)
 
     def assemble(self) -> sp.csc_matrix:
         """Sparse matrix of the stretched operator at ``self.f``."""
@@ -131,12 +131,23 @@ class HelmholtzMatrixSolver2d:
             shape=(self.n, self.n), dtype=complex)
         return matrix.tocsc()
 
-    def solve(self) -> np.ndarray:
-        """Pressure on the physical grid for the scene source map at ``self.f``."""
-        rhs = -self.source.reshape(-1)
-        A = self.assemble()
-        lu = spla.splu(A)
-        raw_p = lu.solve(rhs)
+    def solve(self, source: np.ndarray) -> np.ndarray:
+        """Pressure on the physical grid for the given source map at ``self.f``.
+        
+        Args:
+            source: Source map (kg/m^3 s)
+        
+        Returns:
+            Pressure on the physical grid
+        """
+
+        # Validate input variables
+        if source.ndim != 2 or source.shape != self.scene.shape:
+            raise ValueError("source must be a 2-D array with the same shape as the scene")
+
+        source = np.pad(source, self.scene.pml.thickness, mode="constant")
+        rhs = -source.reshape(-1)
+        raw_p = self.lu.solve(rhs)
         return self.physical_field(raw_p)
 
     def physical_field(self, field: np.ndarray) -> np.ndarray:
