@@ -32,6 +32,7 @@ def propagate_asm2d(p: np.ndarray, z_dist: float, f: float, c: float,
     kz_square = k0**2 - kx**2
     mask = kz_square > 0
     kz = np.sqrt(kz_square.astype(np.complex128))
+    kz[~mask] *= -1
 
     # 1D FFT for angular spectrum calculation
     p_fft = fft(p)
@@ -80,10 +81,9 @@ def propagate_asm3d(p: np.ndarray, z_dist: float, f: float, c: float,
     kx_grid = kx[None, :]
     ky_grid = ky[:, None]
     kz_square = k0**2 - (kx_grid**2 + ky_grid**2)
-
-    # Filter evanescent waves (kz_square <= 0)
     mask = kz_square > 0
-    kz = np.sqrt(np.maximum(0.0, kz_square))
+    kz = np.sqrt(kz_square.astype(np.complex128))
+    kz[~mask] *= -1
 
     # 2D FFT for angular spectrum calculation
     p_fft = fft2(p)
