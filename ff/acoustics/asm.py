@@ -1,8 +1,9 @@
 import numpy as np
 from scipy.fft import fft, ifft, fft2, ifft2, fftfreq
+from .dispersion import DispersionBase2d, ContinuousDispersion2d, DispersionBase3d, ContinuousDispersion3d
 
 def propagate_asm2d(p: np.ndarray, z_dist: float, f: float, c: float,
-                    dx: float) -> np.ndarray:
+                    dx: float, dispersion: DispersionBase2d | None = None) -> np.ndarray:
     """Propagate a 1D complex pressure field along the z-axis using the 2D Angular Spectrum Method (ASM).
 
     Physical geometry: 2D wave propagation in the (x, z) plane.
@@ -15,10 +16,15 @@ def propagate_asm2d(p: np.ndarray, z_dist: float, f: float, c: float,
         f: Frequency in Hz.
         c: Phase speed (e.g. speed of sound) in m/s.
         dx: Spatial sampling pitch along the x-axis in meters.
-
+        dispersion: Dispersion relation object. Defaults to ContinuousDispersion2d if None.
+    
     Returns:
         1D complex pressure field at the target plane z = z_dist.
     """
+
+    # If dispersion is not provided, use ContinuousDispersion
+    if dispersion is None:
+        dispersion = ContinuousDispersion2d()
 
     # Check if the input pressure field is 1D
     if p.ndim != 1:
@@ -27,16 +33,12 @@ def propagate_asm2d(p: np.ndarray, z_dist: float, f: float, c: float,
     # Total wavenumber and spatial frequencies along x
     k0 = 2.0 * np.pi * f / c
     kx = fftfreq(p.shape[0], d=dx) * 2.0 * np.pi
-
-    # Longitudinal wavenumber kz = sqrt(k0^2 - kx^2)
-    kz_square = k0**2 - kx**2
-    mask = kz_square > 0
-    kz = np.sqrt(kz_square.astype(np.complex128))
-    kz[~mask] *= -1
+    kz = dispersion.get_kz(k0, kx, dx)
 
     # 1D FFT for angular spectrum calculation
     p_fft = fft(p)
-    p_fft[~mask] = 0
+    if z_dist < 0:
+        p_fft[kz.imag < 0] = 0
     
     # Phase-shift propagation operator and 1D IFFT
     h_prop = np.exp(-1j * kz * z_dist)
@@ -44,7 +46,7 @@ def propagate_asm2d(p: np.ndarray, z_dist: float, f: float, c: float,
     return p_prop
 
 def propagate_asm3d(p: np.ndarray, z_dist: float, f: float, c: float,
-                    dx: float, dy: float | None = None) -> np.ndarray:
+                    dx: float, dy: float | None = None, dispersion: DispersionBase3d | None = None) -> np.ndarray:
     """Propagate a 2D complex pressure field along the z-axis using 3D Angular Spectrum Method (ASM).
 
     Physical geometry: 3D wave propagation in (x, y, z) space, advancing from plane z=0 to z=z_dist.
@@ -59,10 +61,15 @@ def propagate_asm3d(p: np.ndarray, z_dist: float, f: float, c: float,
         c: Phase speed (e.g. speed of sound) in m/s.
         dx: Spatial sampling pitch along the x-axis in meters (columns).
         dy: Spatial sampling pitch along the y-axis in meters (rows). Defaults to dx if None.
+        dispersion: Dispersion relation object. Defaults to ContinuousDispersion3d if None.
 
     Returns:
         2D complex pressure field on the target plane (z=z_dist), shape (Ny, Nx).
     """
+
+    # If dispersion is not provided, use ContinuousDispersion3d
+    if dispersion is None:
+        dispersion = ContinuousDispersion3d()
 
     # Check if the input pressure field is 2D
     if p.ndim != 2:
@@ -77,17 +84,12 @@ def propagate_asm3d(p: np.ndarray, z_dist: float, f: float, c: float,
     kx = fftfreq(p.shape[1], d=dx) * (2.0 * np.pi)
     ky = fftfreq(p.shape[0], d=dy) * (2.0 * np.pi)
 
-    # Longitudinal wavenumber kz = sqrt(k0^2 - kx^2 - ky^2)
-    kx_grid = kx[None, :]
-    ky_grid = ky[:, None]
-    kz_square = k0**2 - (kx_grid**2 + ky_grid**2)
-    mask = kz_square > 0
-    kz = np.sqrt(kz_square.astype(np.complex128))
-    kz[~mask] *= -1
+    # Get the longitudinal wavenumber kz
+    kz = dispersion.get_kz(k0, kx, ky, dx, dy)
 
     # 2D FFT for angular spectrum calculation
     p_fft = fft2(p)
-    p_fft[~mask] = 0.0
+    p_fft[kz.imag < 0] = 0.0
 
     # Phase-shift propagation operator and 2D IFFT
     h_prop = np.exp(-1j * kz * z_dist)
