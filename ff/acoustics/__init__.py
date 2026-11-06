@@ -11,8 +11,12 @@ from .helmholtz import (
 from .dispersion import (
     ContinuousDispersion2d,
     SecondOrderFivePointDispersion2d,
-    # SecondOrderNinePointCompactDispersion2d,
-    # FourthOrderNinePointCrossDispersion2d,
-    # FourthOrderNinePointCompactDispersion2d,
+    SecondOrderNinePointCompactDispersion2d,
+    FourthOrderNinePointCrossDispersion2d,
+    FourthOrderNinePointCompactDispersion2d,
     ContinuousDispersion3d,
+    SecondOrderSevenPointDispersion3d,
+    FourthOrderThirteenPointCrossDispersion3d,
+    SecondOrderNineteenPointCompactDispersion3d,
+    SecondOrderTwentySevenPointCompactDispersion3d,
 )
