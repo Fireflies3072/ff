@@ -1,13 +1,18 @@
 from .asm import *
+
 from .boundary import (
-    DirichletBC, NeumannBC, RobinBC, PeriodicBC, PMLBC,
     Boundary2d, Boundary3d,
     BoundaryRegion2d, BoundaryRegion3d
 )
-from .helmholtz import (
-    HelmholtzScene,
-    HelmholtzMatrixSolver2d, HelmholtzMatrixSolver3d,
+from .boundary_condition import (
+    DirichletBC, NeumannBC, RobinBC, PeriodicBC, PMLBC
 )
+from .pml import PMLProfile, CFSPML, PolynomialPML
+
+from .helmholtz_scene import HelmholtzSceneNumpy, HelmholtzSceneTorch
+from .helmholtz_matrix import HelmholtzMatrixSolverNumpy2d, HelmholtzMatrixSolverNumpy3d
+from .helmholtz_gmres import HelmholtzGMRESSolverTorch2d, HelmholtzGMRESSolverTorch3d
+
 from .dispersion import (
     ContinuousDispersion2d,
     SecondOrderFivePointDispersion2d,

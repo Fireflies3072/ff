@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ff"
-version = "0.3.13"
+version = "0.3.14"
 description = "Fireflies' personal utility library"
 authors = [
     {name = "Fireflies3072", email = "entroprune@gmail.com"}

@@ -4,7 +4,8 @@ The discrete equation on the active fluid is
 
     div((1 / rho) grad p) + ω² / (rho c²) p = -source
 
-with the ``exp(+j ω t)`` convention.  Boundary conditions, including per-face
+with the ``exp(+j ω t)`` convention.  The factorized system uses ``scene.dtype``:
+``float32`` is complex64 and ``float64`` is complex128.  Boundary conditions, including per-face
 PML padding, come from ``scene.boundaries``.  See ``boundary.py`` for the
 outward normals, array shapes, and precedence rules.  2-D arrays are
 ``(Ny, Nx)`` and 3-D arrays are ``(Nz, Ny, Nx)``.
@@ -24,8 +25,9 @@ from .boundary import (
     RobinBC,
     _sample_face,
     iter_sides,
-    parse_boundaries,
 )
+from .helmholtz_scene import HelmholtzSceneNumpy
+from .pml import stretch_axis
 
 def _positive_scalar(value, name: str) -> float:
     if isinstance(value, (bool, np.bool_)):
@@ -37,44 +39,6 @@ def _positive_scalar(value, name: str) -> float:
     if not np.isfinite(number) or number <= 0.0:
         raise ValueError(f"{name} must be positive")
     return number
-
-def _real_positive_field(array) -> np.ndarray:
-    array = np.asarray(array)
-    if array.dtype == np.bool_ or np.iscomplexobj(array) or not np.issubdtype(array.dtype, np.number):
-        raise ValueError("c and rho must be real")
-    array = np.asarray(array, dtype=float)
-    if not np.all(np.isfinite(array)):
-        raise ValueError("c and rho must be finite")
-    if np.any(array <= 0.0):
-        raise ValueError("c and rho must be positive")
-    return array
-
-class HelmholtzScene:
-    def __init__(self, c: np.ndarray, rho: np.ndarray, dx: float, boundaries=None):
-        """Physical medium and boundary conditions on a uniform Cartesian grid.
-
-        ``c`` and ``rho`` are real, finite, and positive.  A 2-D map has shape
-        ``(Ny, Nx)`` and a 3-D map has shape ``(Nz, Ny, Nx)``.  ``boundaries`` is
-        one outer ``Boundary2d`` or ``Boundary3d`` plus any number of matching
-        regions.  An omitted outer box is a default PML on every face.  Later
-        regions override earlier ones where their masks overlap.
-        """
-
-        c = np.asarray(c)
-        rho = np.asarray(rho)
-        if c.ndim not in (2, 3) or rho.ndim not in (2, 3):
-            raise ValueError("c and rho must be 2-D or 3-D arrays")
-        if c.shape != rho.shape:
-            raise ValueError("c and rho must have the same shape")
-        if any(size < 1 for size in c.shape):
-            raise ValueError("c and rho must have at least one cell along each axis")
-        self.c = _real_positive_field(c)
-        self.rho = _real_positive_field(rho)
-        self.dx = _positive_scalar(dx, "dx")
-        self.ndim = self.c.ndim
-        self.shape = self.c.shape
-        self.boundaries, self.outer, self.regions = parse_boundaries(
-            boundaries, ndim=self.ndim, shape=self.shape)
 
 @dataclass
 class _System:
@@ -119,23 +83,7 @@ class _Assembly:
 def _stretch_1d(positions, n_tot: int, pml_lo: PMLBC | None, pml_hi: PMLBC | None,
                 c_ref: float, dx: float, omega: float) -> np.ndarray:
     """CFS stretch along one axis.  The stretch is 1 outside that axis's PML."""
-    positions = np.asarray(positions, dtype=float)
-    acc = np.zeros(np.shape(positions), dtype=np.complex128)
-    for pml, end in ((pml_lo, "lo"), (pml_hi, "hi")):
-        if pml is None or pml.thickness <= 0:
-            continue
-        thickness = pml.thickness
-        if end == "lo":
-            depth = np.clip((thickness - positions) / thickness, 0.0, 1.0)
-        else:
-            depth = np.clip((positions - (n_tot - 1 - thickness)) / thickness, 0.0, 1.0)
-        length = thickness * dx
-        sigma_max = (pml.order + 1) * c_ref * pml.log_r / (2.0 * length)
-        sigma = sigma_max * depth ** pml.order
-        kappa = 1.0 + (pml.kappa_max - 1.0) * depth ** pml.order
-        alpha = 2.0 * np.pi * pml.alpha_max_hz * (1.0 - depth) * (depth > 0.0)
-        acc += kappa + sigma / (alpha + 1j * omega) - 1.0
-    return 1.0 + acc
+    return stretch_axis(positions, n_tot, pml_lo, pml_hi, c_ref, dx, omega)
 
 def _extend_face(value, phys_shape, axis: int, end: str, padding) -> np.ndarray:
     """Physical-face samples, edge-replicated through tangential PML layers."""
@@ -388,7 +336,7 @@ def _assemble_axis(asm: _Assembly, faces: dict, axis: int) -> None:
             _add_diag(asm.diag, asm.idx[plane][fluid], ddiag)
             _add_diag(asm.rhs_bc, asm.idx[plane][fluid], drhs)
 
-def _finalize(asm: _Assembly, scene: HelmholtzScene, c, rho, dirichlet_value, padding, origin) -> _System:
+def _finalize(asm: _Assembly, scene: HelmholtzSceneNumpy, c, rho, dirichlet_value, padding, origin) -> _System:
     ext_shape = asm.idx.shape
     n = int(np.prod(ext_shape))
     mass = asm.omega ** 2 / (rho * c ** 2)
@@ -429,7 +377,7 @@ def _finalize(asm: _Assembly, scene: HelmholtzScene, c, rho, dirichlet_value, pa
         n=n,
     )
 
-def _assemble_system(scene: HelmholtzScene, omega: float) -> _System:
+def _assemble_system(scene: HelmholtzSceneNumpy, omega: float) -> _System:
     sides = tuple(iter_sides(scene.outer))
     ndim = scene.ndim
     phys_shape = tuple(scene.shape)
@@ -470,7 +418,7 @@ def _assemble_system(scene: HelmholtzScene, omega: float) -> _System:
     return _finalize(asm, scene, c, rho, dirichlet_value, padding, origin)
 
 class _HelmholtzSolver:
-    def _setup(self, scene: HelmholtzScene, f: float) -> None:
+    def _setup(self, scene: HelmholtzSceneNumpy, f: float) -> None:
         self.scene = scene
         self.f = _positive_scalar(f, "f")
         self.omega = 2.0 * np.pi * self.f
@@ -482,10 +430,17 @@ class _HelmholtzSolver:
         self._origin = system.origin
         self.n = system.n
         self.c_ref = system.c_ref
-        self.A = system.A
-        self.lu = spla.splu(system.A)
-        self._rhs_bc = system.rhs_bc
-        self._source_weight = system.source_weight
+        self.dtype = np.dtype(scene.dtype)
+        if self.dtype == np.dtype(np.float32):
+            self.complex_dtype = np.dtype(np.complex64)
+        elif self.dtype == np.dtype(np.float64):
+            self.complex_dtype = np.dtype(np.complex128)
+        else:
+            raise TypeError(f"scene dtype {self.dtype} is not supported")
+        self.A = system.A.astype(self.complex_dtype, copy=False)
+        self.lu = spla.splu(self.A)
+        self._rhs_bc = np.asarray(system.rhs_bc, dtype=self.complex_dtype)
+        self._source_weight = np.asarray(system.source_weight, dtype=self.dtype)
 
     def assemble(self) -> sp.csc_matrix:
         """Sparse matrix of the operator at ``self.f``, including boundary rows."""
@@ -494,13 +449,13 @@ class _HelmholtzSolver:
     def solve(self, source: np.ndarray | None = None) -> np.ndarray:
         """Pressure on the physical grid.  An omitted source is zero."""
         if source is None:
-            src = np.zeros(self.scene.shape, dtype=np.complex128)
+            src = np.zeros(self.scene.shape, dtype=self.complex_dtype)
         else:
             src = np.asarray(source)
             label = "2-D" if self.scene.ndim == 2 else "3-D"
             if src.ndim != self.scene.ndim or src.shape != self.scene.shape:
                 raise ValueError(f"source must be a {label} array with the same shape as the scene")
-            src = np.asarray(src, dtype=np.complex128)
+            src = np.asarray(src, dtype=self.complex_dtype)
         padded = np.pad(src, self.padding, mode="constant")
         rhs = -padded.reshape(-1) * self._source_weight + self._rhs_bc
         return self.physical_field(self.lu.solve(rhs))
@@ -517,8 +472,8 @@ class _HelmholtzSolver:
         extra = (slice(None),) * (grid.ndim - ndim)
         return grid[sl + extra]
 
-class HelmholtzMatrixSolver2d(_HelmholtzSolver):
-    def __init__(self, scene: HelmholtzScene, f: float):
+class HelmholtzMatrixSolverNumpy2d(_HelmholtzSolver):
+    def __init__(self, scene: HelmholtzSceneNumpy, f: float):
         """Five-point Helmholtz operator at one frequency.
 
         The operator is factorized once and reused for every source.  ``solve()``
@@ -527,11 +482,11 @@ class HelmholtzMatrixSolver2d(_HelmholtzSolver):
         """
 
         if scene.ndim != 2:
-            raise ValueError("HelmholtzMatrixSolver2d requires a 2-D scene")
+            raise ValueError("HelmholtzMatrixSolverNumpy2d requires a 2-D scene")
         self._setup(scene, f)
 
-class HelmholtzMatrixSolver3d(_HelmholtzSolver):
-    def __init__(self, scene: HelmholtzScene, f: float):
+class HelmholtzMatrixSolverNumpy3d(_HelmholtzSolver):
+    def __init__(self, scene: HelmholtzSceneNumpy, f: float):
         """Seven-point Helmholtz operator at one frequency.
 
         The operator is factorized once and reused for every source.  ``solve()``
@@ -543,5 +498,5 @@ class HelmholtzMatrixSolver3d(_HelmholtzSolver):
         """
 
         if scene.ndim != 3:
-            raise ValueError("HelmholtzMatrixSolver3d requires a 3-D scene")
+            raise ValueError("HelmholtzMatrixSolverNumpy3d requires a 3-D scene")
         self._setup(scene, f)

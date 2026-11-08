@@ -37,6 +37,8 @@ from collections.abc import Sequence
 
 import numpy as np
 
+from .boundary_condition import DirichletBC, NeumannBC, PeriodicBC, PMLBC, RobinBC
+
 _SIDES_2D = (
     ("top", 0, "lo"),
     ("bottom", 0, "hi"),
@@ -53,74 +55,6 @@ _SIDES_3D = (
 )
 _PAIRS_2D = (("left", "right"), ("top", "bottom"))
 _PAIRS_3D = (("left", "right"), ("top", "bottom"), ("front", "back"))
-
-def _as_numeric(value, name: str) -> np.ndarray:
-    array = np.asarray(value)
-    if array.dtype == np.bool_ or not np.issubdtype(array.dtype, np.number):
-        raise TypeError(f"{name} must be numeric")
-    if not np.all(np.isfinite(array)):
-        raise ValueError(f"{name} must be finite")
-    return array
-
-class DirichletBC:
-    def __init__(self, value):
-        """Prescribed pressure ``p = value``."""
-        self.value = _as_numeric(value, "DirichletBC value")
-
-class NeumannBC:
-    def __init__(self, value):
-        """Prescribed outward derivative ``dp/dn = value``."""
-        self.value = _as_numeric(value, "NeumannBC value")
-
-class RobinBC:
-    def __init__(self, a, b, g):
-        """Impedance condition ``a * p + b * dp/dn = g`` with outward ``n``.
-
-        ``b = 0`` is the Dirichlet condition ``a * p = g``.  Enforced locations
-        must have ``a`` or ``b`` nonzero.
-        """
-
-        self.a = _as_numeric(a, "RobinBC a")
-        self.b = _as_numeric(b, "RobinBC b")
-        self.g = _as_numeric(g, "RobinBC g")
-
-class PeriodicBC:
-    def __init__(self):
-        """Periodic identification with the opposite face."""
-
-class PMLBC:
-    def __init__(self, thickness=16, order=2, log_r=8.0, kappa_max=1.0, alpha_max_hz=40.0):
-        """Complex-frequency-shifted PML on one face.
-
-        The stretch is ``s = κ + σ / (α + j ω)`` for ``exp(+j ω t)``.  ``thickness``
-        is the number of cells added outside this face.  The profile and the
-        homogeneous Dirichlet ghost beyond the outer PML cell match the previous
-        uniform-PML discretization.  ``log_r`` sets the nominal normal-incidence
-        reflection to ``exp(-log_r)``.
-        """
-
-        self.thickness = _pml_count(thickness, "thickness")
-        self.order = _pml_count(order, "order")
-        self.log_r = _pml_scalar(log_r, "log_r")
-        self.kappa_max = _pml_scalar(kappa_max, "kappa_max")
-        self.alpha_max_hz = _pml_scalar(alpha_max_hz, "alpha_max_hz")
-        if self.kappa_max <= 0.0:
-            raise ValueError("PML kappa_max must be positive")
-
-def _pml_count(value, name: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, (int, np.integer)):
-        raise TypeError(f"PML {name} must be an integer")
-    if int(value) < 0:
-        raise ValueError(f"PML {name} must be non-negative")
-    return int(value)
-
-def _pml_scalar(value, name: str) -> float:
-    value = _as_numeric(value, f"PML {name}")
-    if value.shape != ():
-        raise ValueError(f"PML {name} must be a scalar")
-    if np.iscomplexobj(value) and np.any(np.imag(value) != 0.0):
-        raise TypeError(f"PML {name} must be real")
-    return float(np.real(value))
 
 def _assign_faces(owner, faces, pairs) -> None:
     allowed = (DirichletBC, NeumannBC, RobinBC, PeriodicBC, PMLBC)
